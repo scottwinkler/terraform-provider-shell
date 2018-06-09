@@ -13,6 +13,8 @@ There is nothing to configure for the provider, declare it like so
 To use a data resource you need to implement the read command. Stdout and stderr are available as outputs of this resource. In addition, if the output of your read command happens to be a json (map[string]string) then you can access these through the output map.
 
 	data "shell_script" "test" {
+		#kinda weird to have a map with only one variable but i wanted
+		#to be consistent with the shell_script resource
 		lifecycle_commands {
 			read = <<EOF
 			echo '{"commit_id": "b8f2b8b"}'
@@ -46,12 +48,12 @@ Resources are a bit more complicated. You must implement the create, read and de
 		}
 	}
 
-In the example above I am changing my working_directory, setting some environment variables that will be utilized by all my scripts, and configuring my lifecycle commands for create, read and delete. Create and read should return the same output, but read doesn't create a new resource. An example shell script resouce could have a file being written to in the create, and then cat that file to stdout. Read would simply cat that previously created file to stdout. Delete needs to clean up any resources that were created. State data is available through stdin, which is simply the stdout of either the create or read lifecycle command.
+In the example above I am changing my working_directory, setting some environment variables that will be utilized by all my scripts, and configuring my lifecycle commands for create, read and delete. Create and read should return the same output, but read doesn't create a new resource. An example shell script resouce could have a file being written to in the create, and then cat that file to stdout. Read would simply cat that previously created file to stdout. Delete needs to clean up any resources that were created. State data is available through stdin, which is the stdout of either the create or read lifecycle command.
 
 Stdout, stderr and a variable map parsed from stdout (if the stdout happened to be a json payload) are available as outputs of this resource
 
 ## Develop
-Note that this is already in artifactory so you do not need to do this step. If you wish to build this yourself, follow the instructions:
+If you wish to build this yourself, follow the instructions:
 
 	cd ~/go/src/githubdev.dco.elmae/CloudPlatform
 	git clone http://githubdev.dco.elmae/CloudPlatform/terraform-provider-shell.git
