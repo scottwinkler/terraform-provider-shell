@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 
 	"github.com/armon/circbuf"
 	"github.com/hashicorp/terraform/helper/schema"
@@ -17,13 +18,23 @@ import (
 
 func dataSourceShellScript() *schema.Resource {
 	return &schema.Resource{
-		Read: shellScriptRead,
+		Read: dataSourceShellScriptRead,
 
 		Schema: map[string]*schema.Schema{
-			"read": {
-				Type:     schema.TypeString,
+			"lifecycle_commands": {
+				Type:     schema.TypeList,
 				Required: true,
 				ForceNew: true,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"read": {
+							Type:     schema.TypeString,
+							Required: true,
+							ForceNew: true,
+						},
+					},
+				},
 			},
 			"environment": {
 				Type:     schema.TypeMap,
@@ -54,23 +65,27 @@ func dataSourceShellScript() *schema.Resource {
 	}
 }
 
-func shellScriptRead(d *schema.ResourceData, meta interface{}) error {
-	command := d.Get("read").(string)
+func dataSourceShellScriptRead(d *schema.ResourceData, meta interface{}) error {
+	l := d.Get("lifecycle_commands").([]interface{})
+	c := l[0].(map[string]interface{})
+	command := c["read"].(string)
 	vars := d.Get("environment").(map[string]interface{})
 	environment := readEnvironmentVariables(vars)
 	workingDirectory := d.Get("working_directory").(string)
-
+	var input string
 	//obtain exclusive lock
 	shellMutexKV.Lock(shellScriptMutexKey)
 	defer shellMutexKV.Unlock(shellScriptMutexKey)
 
-	stdout, stderr, err := runCommand(command, environment, workingDirectory)
+	stdout, stderr, err := runCommand(command, input, environment, workingDirectory)
 	if err != nil {
 		return err
 	}
 	output, err := parseJSON(stdout)
 	if err != nil {
 		log.Printf("[DEBUG] error parsing sdout into json: %v", err)
+		output = make(map[string]string)
+		d.Set("output", output)
 	} else {
 		d.Set("output", output)
 	}
@@ -93,7 +108,6 @@ func parseJSON(s string) (map[string]string, error) {
 
 func readEnvironmentVariables(ev map[string]interface{}) []string {
 	var variables []string
-	variables = append(os.Environ())
 	if ev != nil {
 		for k, v := range ev {
 			variables = append(variables, k+"="+v.(string))
@@ -102,7 +116,7 @@ func readEnvironmentVariables(ev map[string]interface{}) []string {
 	return variables
 }
 
-func runCommand(command string, environment []string, workingDirectory string) (string, string, error) {
+func runCommand(command string, input string, environment []string, workingDirectory string) (string, string, error) {
 	const maxBufSize = 8 * 1024
 	// Execute the command using a shell
 	var shell, flag string
@@ -117,6 +131,9 @@ func runCommand(command string, environment []string, workingDirectory string) (
 	// Setup the command
 	command = fmt.Sprintf("cd %s && %s", workingDirectory, command)
 	cmd := exec.Command(shell, flag, command)
+	stdin := strings.NewReader(input)
+	cmd.Stdin = stdin
+	environment = append(environment, os.Environ()...)
 	cmd.Env = environment
 	stdout, _ := circbuf.NewBuffer(maxBufSize)
 	stderr, _ := circbuf.NewBuffer(maxBufSize)
