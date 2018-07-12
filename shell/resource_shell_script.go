@@ -26,8 +26,9 @@ func resourceShellScript() *schema.Resource {
 						},
 						"read": {
 							Type:     schema.TypeString,
-							Required: true,
+							Optional: true,
 							ForceNew: true,
+							Default:  "IN=$(cat)\necho $IN",
 						},
 						"delete": {
 							Type:     schema.TypeString,
