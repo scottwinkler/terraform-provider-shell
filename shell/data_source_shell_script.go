@@ -1,19 +1,11 @@
 package shell
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"io"
 	"log"
-	"os"
-	"os/exec"
-	"runtime"
-	"strings"
 
-	"github.com/armon/circbuf"
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/rs/xid"
 )
 
 func dataSourceShellScript() *schema.Resource {
@@ -48,14 +40,6 @@ func dataSourceShellScript() *schema.Resource {
 				ForceNew: true,
 				Default:  ".",
 			},
-			"stderr": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"stdout": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
 			"output": {
 				Type:     schema.TypeMap,
 				Computed: true,
@@ -66,95 +50,34 @@ func dataSourceShellScript() *schema.Resource {
 }
 
 func dataSourceShellScriptRead(d *schema.ResourceData, meta interface{}) error {
+	log.Printf("[DEBUG] Reading shell script data resource...")
 	l := d.Get("lifecycle_commands").([]interface{})
 	c := l[0].(map[string]interface{})
-	command := c["read"].(string)
+	value := c["read"]
+
+	command := value.(string)
 	vars := d.Get("environment").(map[string]interface{})
 	environment := readEnvironmentVariables(vars)
 	workingDirectory := d.Get("working_directory").(string)
-	var input string
+	output := make(map[string]string)
+
 	//obtain exclusive lock
 	shellMutexKV.Lock(shellScriptMutexKey)
 	defer shellMutexKV.Unlock(shellScriptMutexKey)
 
-	stdout, stderr, err := runCommand(command, input, environment, workingDirectory)
+	state := NewState(environment, output)
+	newState, err := runCommand(command, state, environment, workingDirectory)
 	if err != nil {
 		return err
 	}
-	output, err := parseJSON(stdout)
-	if err != nil {
-		log.Printf("[DEBUG] error parsing sdout into json: %v", err)
-		output = make(map[string]string)
-		d.Set("output", output)
-	} else {
-		d.Set("output", output)
-	}
 
-	d.Set("stdout", stdout)
-	d.Set("stderr", stderr)
-	d.SetId(hash(command))
+	if newState == nil {
+		return fmt.Errorf("Error: state from read operation cannot be nil")
+	}
+	d.Set("output", newState.output)
+
+	//create random uuid for the id
+	id := xid.New().String()
+	d.SetId(id)
 	return nil
-}
-
-func parseJSON(s string) (map[string]string, error) {
-	var f map[string]interface{}
-	err := json.Unmarshal([]byte(s), &f)
-	output := make(map[string]string)
-	for k, v := range f {
-		output[k] = v.(string)
-	}
-	return output, err
-}
-
-func readEnvironmentVariables(ev map[string]interface{}) []string {
-	var variables []string
-	if ev != nil {
-		for k, v := range ev {
-			variables = append(variables, k+"="+v.(string))
-		}
-	}
-	return variables
-}
-
-func runCommand(command string, input string, environment []string, workingDirectory string) (string, string, error) {
-	const maxBufSize = 8 * 1024
-	// Execute the command using a shell
-	var shell, flag string
-	if runtime.GOOS == "windows" {
-		shell = "cmd"
-		flag = "/C"
-	} else {
-		shell = "/bin/sh"
-		flag = "-c"
-	}
-
-	// Setup the command
-	command = fmt.Sprintf("cd %s && %s", workingDirectory, command)
-	cmd := exec.Command(shell, flag, command)
-	stdin := strings.NewReader(input)
-	cmd.Stdin = stdin
-	environment = append(environment, os.Environ()...)
-	cmd.Env = environment
-	stdout, _ := circbuf.NewBuffer(maxBufSize)
-	stderr, _ := circbuf.NewBuffer(maxBufSize)
-	cmd.Stderr = io.Writer(stderr)
-	cmd.Stdout = io.Writer(stdout)
-
-	// Output what we're about to run
-	log.Printf("[DEBUG] shell script going to execute: %s %s \"%s\"", shell, flag, command)
-
-	// Run the command to completion
-	err := cmd.Run()
-
-	if err != nil {
-		return "", "", fmt.Errorf("Error running command '%s': '%v'", command, err)
-	}
-
-	log.Printf("[DEBUG] shell script command stdout was: \"%s\"", stdout.String())
-	log.Printf("[DEBUG] shell script command stderr was: \"%s\"", stderr.String())
-	return stdout.String(), stderr.String(), nil
-}
-func hash(s string) string {
-	sha := sha256.Sum256([]byte(s))
-	return hex.EncodeToString(sha[:])
 }

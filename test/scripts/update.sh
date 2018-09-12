@@ -1,9 +1,9 @@
 #!/bin/bash
-echo "creating..."
+echo "updating..."
 echo "writing some error" >&2
 
 IN=$(cat)
-echo "stdin: ${IN}" #the old state, not useful for create step since the old state was empty
+echo "stdin: ${IN}" #the old state
 
 #business logic
 /bin/cat <<END >ex.json
