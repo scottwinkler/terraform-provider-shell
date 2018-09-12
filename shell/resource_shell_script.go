@@ -1,11 +1,11 @@
 package shell
 
 import (
-	"crypto/rand"
 	"fmt"
 	"log"
 
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/rs/xid"
 )
 
 func resourceShellScript() *schema.Resource {
@@ -66,17 +66,16 @@ func resourceShellScript() *schema.Resource {
 }
 
 func resourceShellScriptCreate(d *schema.ResourceData, meta interface{}) error {
+	log.Printf("[DEBUG] Creating shell script resource...")
 	l := d.Get("lifecycle_commands").([]interface{})
 	c := l[0].(map[string]interface{})
 	command := c["create"].(string)
 	vars := d.Get("environment").(map[string]interface{})
 	environment := readEnvironmentVariables(vars)
-
 	workingDirectory := d.Get("working_directory").(string)
 
 	//obtain exclusive lock
 	shellMutexKV.Lock(shellScriptMutexKey)
-	defer shellMutexKV.Unlock(shellScriptMutexKey)
 
 	output := make(map[string]string)
 	state := NewState(environment, output)
@@ -84,10 +83,10 @@ func resourceShellScriptCreate(d *schema.ResourceData, meta interface{}) error {
 	if err != nil {
 		return err
 	}
+	shellMutexKV.Unlock(shellScriptMutexKey)
 
-	//once creation has finished setup state so update works
+	//if create doesn't return a new state then must call the read operation
 	if newState == nil {
-		//otherwise set state fix the read()
 		if err := resourceShellScriptRead(d, meta); err != nil {
 			return err
 		}
@@ -95,32 +94,31 @@ func resourceShellScriptCreate(d *schema.ResourceData, meta interface{}) error {
 		d.Set("output", newState.output)
 	}
 
-	//create random uuid for the id, changes to inputs will prompt update or recreate so it doesn't need to change
-	idBytes := make([]byte, 16)
-	_, randErr := rand.Read(idBytes)
-	if randErr != nil {
-		return randErr
-	}
-	d.SetId(hash(string(idBytes[0:])))
+	//create random uuid for the id
+	id := xid.New().String()
+	d.SetId(id)
 	return nil
 }
 
 func resourceShellScriptRead(d *schema.ResourceData, meta interface{}) error {
+	log.Printf("[DEBUG] Reading shell script resource...")
 	l := d.Get("lifecycle_commands").([]interface{})
 	c := l[0].(map[string]interface{})
-	value := c["read"]
+	command := c["read"].(string)
 
-	//if read is not set then do nothing. assume create is setting the state and it never needs to
-	//be synchronized with the remote state
-	if value == nil {
+	//if read is not set then do nothing. assume something either create or update is setting the state
+	if len(command) == 0 {
 		return nil
 	}
 
-	command := value.(string)
 	vars := d.Get("environment").(map[string]interface{})
 	environment := readEnvironmentVariables(vars)
 	workingDirectory := d.Get("working_directory").(string)
-	output := d.Get("output").(map[string]string)
+	o := d.Get("output").(map[string]interface{})
+	output := make(map[string]string)
+	for k, v := range o {
+		output[k] = v.(string)
+	}
 
 	//obtain exclusive lock
 	shellMutexKV.Lock(shellScriptMutexKey)
@@ -140,25 +138,34 @@ func resourceShellScriptRead(d *schema.ResourceData, meta interface{}) error {
 }
 
 func resourceShellScriptUpdate(d *schema.ResourceData, meta interface{}) error {
+	log.Printf("[DEBUG] Updating shell script resource...")
 	l := d.Get("lifecycle_commands").([]interface{})
 	c := l[0].(map[string]interface{})
-	value := c["update"]
+	command := c["update"].(string)
 
-	//if update is not set, then treat it simply as a tainted resource
-	if value == nil {
+	//if update is not set, then treat it simply as a tainted resource - delete then recreate
+	if len(command) == 0 {
 		resourceShellScriptDelete(d, meta)
 		return resourceShellScriptCreate(d, meta)
 	}
 
-	command := value.(string)
-	vars := d.Get("environment").(map[string]interface{})
+	//need to get the old environment
+	var vars map[string]interface{}
+	if d.HasChange("environment") {
+		e, _ := d.GetChange("environment")
+		vars = e.(map[string]interface{})
+	}
+
 	environment := readEnvironmentVariables(vars)
 	workingDirectory := d.Get("working_directory").(string)
-	output := d.Get("output").(map[string]string)
+	o := d.Get("output").(map[string]interface{})
+	output := make(map[string]string)
+	for k, v := range o {
+		output[k] = v.(string)
+	}
 
 	//obtain exclusive lock
 	shellMutexKV.Lock(shellScriptMutexKey)
-	defer shellMutexKV.Unlock(shellScriptMutexKey)
 
 	state := NewState(environment, output)
 	newState, err := runCommand(command, state, environment, workingDirectory)
@@ -166,9 +173,10 @@ func resourceShellScriptUpdate(d *schema.ResourceData, meta interface{}) error {
 		return err
 	}
 
-	//once creation has finished setup state so update works
+	shellMutexKV.Unlock(shellScriptMutexKey)
+
+	//if update doesn't return a new state then must call the read operation
 	if newState == nil {
-		//otherwise set state fix the read()
 		if err := resourceShellScriptRead(d, meta); err != nil {
 			return err
 		}
@@ -179,14 +187,18 @@ func resourceShellScriptUpdate(d *schema.ResourceData, meta interface{}) error {
 }
 
 func resourceShellScriptDelete(d *schema.ResourceData, meta interface{}) error {
-	log.Printf("[DEBUG] Deleting shell script resource")
+	log.Printf("[DEBUG] Deleting shell script resource...")
 	l := d.Get("lifecycle_commands").([]interface{})
 	c := l[0].(map[string]interface{})
 	command := c["delete"].(string)
 	vars := d.Get("environment").(map[string]interface{})
 	environment := readEnvironmentVariables(vars)
 	workingDirectory := d.Get("working_directory").(string)
-	output := d.Get("output").(map[string]string)
+	o := d.Get("output").(map[string]interface{})
+	output := make(map[string]string)
+	for k, v := range o {
+		output[k] = v.(string)
+	}
 
 	//obtain exclusive lock
 	shellMutexKV.Lock(shellScriptMutexKey)

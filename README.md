@@ -10,20 +10,13 @@ There is nothing to configure for the provider, declare it like so
 
 	provider "shell" {}
 
-To use a data resource you need to implement the read command. Stdout and stderr are available as outputs of this resource. In addition, if the output of your read command happens to be a json (map[string]string) then you can access these through the output map.
+To use a data resource you need to implement the read command. Any output to stdout or stderr will show up in the logs, but to save the state, you must output to >&3. In addition, your output must be a properly formatted json object that can be marshalled into a map[string]string. The reason for this is that your json payload variables can be accessed from the output map of this resource and used like a normal terraform output.
 
-	data "shell_script" "test" {
-		#kinda weird to have a map with only one variable but i wanted
-		#to be consistent with the shell_script resource
+	data "shell_script" "test1" {
 		lifecycle_commands {
 			read = <<EOF
-			echo '{"commit_id": "b8f2b8b"}'
+			echo '{"commit_id": "b8f2b8b"}' >&3
 			EOF
-		}
-		working_directory = "."
-
-		environment = {
-			ydawgie = "scrubsauce"
 		}
 	}
 
@@ -32,31 +25,37 @@ To use a data resource you need to implement the read command. Stdout and stderr
   		value = "${data.shell_script.test.output["commit_id"]}"
 	}
 
-Resources are a bit more complicated. You must implement the create, read and delete lifecycle commands. Update is not supported because that would be needlessly tricky. Instead, any change to this resource triggers it to be deleted and recreated, so you need to ensure that your delete and create commands are repeatable.
+Resources are a bit more complicated. You must implement the create, and delete lifecycle commands, but read and update are also optionally available. If you choose not to implement the read command, then create (and update if you are using it) must output the state in the form of a properly formatted json. The local state will not be synced with the actual state, but for many applications that is not a problem. If you choose not to implement update, then if a change occurs that would trigger an update the resource will be instead be destroyed and then recreated. Again, for many applications this is not a problem, update can be tricky to use as it depends a lot on the use case. If you implement read, then you must output the state in the form of a properly formatted json, and you should not output the state in either the create or update scripts. See the examples in the test folder for how to do each of these.
 
 	resource "shell_script" "test" {
 		lifecycle_commands {
-			create = "bash create.sh"
-			read   = "bash read.sh"
-			delete = "bash delete.sh"
+			create = "${file("${path.module}/scripts/create.sh")}"
+			read   = "${file("${path.module}/scripts/read.sh")}"
+			update = "${file("${path.module}/scripts/update.sh")}"
+			delete = "${file("${path.module}/scripts/delete.sh")}"
 		}
 
-		working_directory = "./scripts"
+		working_directory = "${path.module}"
 
 		environment = {
 			yolo = "yolo"
+			ball = "room"
 		}
 	}
 
-In the example above I am changing my working_directory, setting some environment variables that will be utilized by all my scripts, and configuring my lifecycle commands for create, read and delete. Create and read should return the same output, but read doesn't create a new resource. An example shell script resouce could have a file being written to in the create, and then cat that file to stdout. Read would simply cat that previously created file to stdout. Delete needs to clean up any resources that were created. State data is available through stdin, which is the stdout of either the create or read lifecycle command.
+	output "commit_id" {
+	value = "${shell_script.test.output["commit_id"]}"
+	}
 
-Stdout, stderr and a variable map parsed from stdout (if the stdout happened to be a json payload) are available as outputs of this resource
+In the example above I am changing my working_directory, setting some environment variables that will be utilized by all my scripts, and configuring my lifecycle commands for create, read, update and delete. Create and Update should modify the resource but not update the state, while Read should update the state but not modify the resource. An example shell script resouce could have a file being written to in the create. Read would simply cat that previously created file and output it to >&3. Update could measure the changes from the old state (available through stdin) and the new state (implicitly available through environment variables) to decide how best to handle an update. Again since this is a custom resource it is up to you to decide how best to handle updates, in many cases it may make sense not to implement update at all and rely on just create/read/delete. Delete needs to clean up any resources that were created but does not need to return anything. State data is available in the output variable, which is mapped from the json of your read command.
+
+Stdout and stderr are available in the debug log files. 
 
 ## Develop
 If you wish to build this yourself, follow the instructions:
 
-	cd ~/go/src/githubdev.dco.elmae/CloudPlatform
-	git clone http://githubdev.dco.elmae/CloudPlatform/terraform-provider-shell.git
+	cd ~/go/src/github.com/scottwinkler/terraform-provider-shell
+	git clone https://github.com/scottwinkler/terraform-provider-shell.git
 	cd terraform-provider-shell
 	go get				
 	go install
