@@ -1,4 +1,4 @@
-package shell
+package main
 
 import (
 	"log"
@@ -20,25 +20,33 @@ func resourceShellScript() *schema.Resource {
 				MaxItems: 1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
+						"idempotent": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							ForceNew: true,
+							Default: false,
+						},
 						"create": {
 							Type:     schema.TypeString,
 							Required: true,
-							ForceNew: true,
-						},
-						"update": {
-							Type:     schema.TypeString,
-							Required: true,
-							ForceNew: true,
+							ForceNew: false,
 						},
 						"read": {
 							Type:     schema.TypeString,
-							Required: true,
-							ForceNew: true,
+							Optional: true,
+							ForceNew: false,
+							Default:  "IN=$(cat)\nprintf $IN >&3",
+						},
+						"update": {
+							Type:     schema.TypeString,
+							Optional: true,
+							ForceNew: false,
+							Default:  "",
 						},
 						"delete": {
 							Type:     schema.TypeString,
 							Required: true,
-							ForceNew: true,
+							ForceNew: false,
 						},
 					},
 				},
@@ -46,18 +54,22 @@ func resourceShellScript() *schema.Resource {
 			"environment": {
 				Type:     schema.TypeMap,
 				Optional: true,
-				ForceNew: true,
 				Elem:     schema.TypeString,
 			},
 			"working_directory": {
 				Type:     schema.TypeString,
 				Optional: true,
-				ForceNew: true,
 				Default:  ".",
 			},
-			"state": {
+			"recreate_triggers": &schema.Schema{
+				Type:     schema.TypeMap,
+				Optional: true,
+				ForceNew: true,
+			},
+			"update_trigger": {
 				Type:     schema.TypeString,
 				Optional: true,
+				Default:  "created",
 			},
 			"output": {
 				Type:     schema.TypeMap,
@@ -75,19 +87,19 @@ func resourceShellScriptCreate(d *schema.ResourceData, meta interface{}) error {
 	vars := d.Get("environment").(map[string]interface{})
 	environment := readEnvironmentVariables(vars)
 	workingDirectory := d.Get("working_directory").(string)
+
 	//obtain exclusive lock
 	shellMutexKV.Lock(shellScriptMutexKey)
 	
-	extraout, stdout, _, err := runCommand(command, "", environment, workingDirectory)
+	extraout, _, _, err := runCommand(command, "", environment, workingDirectory)
 	if err != nil {
 		return err
 	}
-	log.Printf(stdout)
 
 	//try and parse extraout as JSON to expose, could just be a string
 	output, err := parseJSON(extraout)
 	if err != nil {
-		log.Printf("[DEBUG] error parsing sdout into json: %v", err)
+		log.Printf("[DEBUG] error parsing extraout into json: %v", err)
 		output = make(map[string]string)
 		d.Set("output", output)
 	} else {
@@ -102,16 +114,16 @@ func resourceShellScriptCreate(d *schema.ResourceData, meta interface{}) error {
     }
     d.SetId(hash(string(idBytes[0:])))
 
-	//once creation has finished setup state so update works
+	//once creation has finished setup update_trigger so update works
 	if len(extraout) > 0 {
 		//if we have some content on extraout (used for diff) use that
-		d.Set("state", extraout)
+		d.Set("update_trigger", extraout)
 		shellMutexKV.Unlock(shellScriptMutexKey)
 		return nil
 
 	} else {
 		shellMutexKV.Unlock(shellScriptMutexKey)
-		//otherwise set state fix the read()
+		//otherwise set update_trigger fix the read()
 		return resourceShellScriptRead(d, meta)
 	}
 	
@@ -124,19 +136,19 @@ func resourceShellScriptRead(d *schema.ResourceData, meta interface{}) error {
 	vars := d.Get("environment").(map[string]interface{})
 	environment := readEnvironmentVariables(vars)
 	workingDirectory := d.Get("working_directory").(string)
-	input := d.Get("state").(string)
+	input := d.Get("update_trigger").(string)
 
 	//obtain exclusive lock
 	shellMutexKV.Lock(shellScriptMutexKey)
 	defer shellMutexKV.Unlock(shellScriptMutexKey)
 
-	extraout, _, _, err := runCommand(command, "", environment, workingDirectory)
+	extraout, _, _, err := runCommand(command, input, environment, workingDirectory)
 	if err != nil {
 		return err
 	}
 	output, err := parseJSON(extraout)
 	if err != nil {
-		log.Printf("[DEBUG] error parsing sdout into json: %v", err)
+		log.Printf("[DEBUG] error parsing extraout into json: %v", err)
 		var output map[string]string
 		d.Set("output", output)
 	} else {
@@ -146,9 +158,9 @@ func resourceShellScriptRead(d *schema.ResourceData, meta interface{}) error {
 	if len(extraout) == 0 {
 		d.SetId("")
 	} else {
-		log.Printf("Have state: " + input)
-		log.Printf("Setting as state: " + extraout)
-		d.Set("state", extraout)
+		log.Printf("[DEBUG] Have update_trigger: " + input)
+		log.Printf("[DEBUG] Setting as update_trigger: " + extraout)
+		d.Set("update_trigger", extraout)
 	}
 	return nil
 }
@@ -157,11 +169,16 @@ func resourceShellScriptUpdate(d *schema.ResourceData, meta interface{}) error {
 	l := d.Get("lifecycle_commands").([]interface{})
 	c := l[0].(map[string]interface{})
 	command := c["update"].(string)
+	//if command is idempotent and no overriding update is defined then just use the create command
+	if len(command) == 0 && c["idempotent"].(bool) == true {
+		command = c["create"].(string)
+	}
 	vars := d.Get("environment").(map[string]interface{})
 	environment := readEnvironmentVariables(vars)
 	workingDirectory := d.Get("working_directory").(string)
+	input := d.Get("update_trigger").(string)
 
-	_, _, _, err := runCommand(command, "", environment, workingDirectory)
+	_, _, _, err := runCommand(command, input, environment, workingDirectory)
 	if err != nil {
 		return err
 	}
@@ -177,11 +194,12 @@ func resourceShellScriptDelete(d *schema.ResourceData, meta interface{}) error {
 	vars := d.Get("environment").(map[string]interface{})
 	environment := readEnvironmentVariables(vars)
 	workingDirectory := d.Get("working_directory").(string)
+	input := d.Get("update_trigger").(string)
 	//obtain exclusive lock
 	shellMutexKV.Lock(shellScriptMutexKey)
 	defer shellMutexKV.Unlock(shellScriptMutexKey)
 
-	_, _, _, err := runCommand(command, "", environment, workingDirectory)
+	_, _, _, err := runCommand(command, input, environment, workingDirectory)
 	if err != nil {
 		return err
 	}

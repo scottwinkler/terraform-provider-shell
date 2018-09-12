@@ -1,4 +1,4 @@
-package shell
+package main
 
 type Config struct {
 }

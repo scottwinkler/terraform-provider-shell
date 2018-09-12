@@ -1,4 +1,4 @@
-package shell
+package main
 
 import (
 	"crypto/sha256"
@@ -57,6 +57,10 @@ func dataSourceShellScript() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"extraout": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 			"output": {
 				Type:     schema.TypeMap,
 				Computed: true,
@@ -78,7 +82,7 @@ func dataSourceShellScriptRead(d *schema.ResourceData, meta interface{}) error {
 	shellMutexKV.Lock(shellScriptMutexKey)
 	defer shellMutexKV.Unlock(shellScriptMutexKey)
 
-	_, stdout, stderr, err := runCommand(command, input, environment, workingDirectory)
+	extraout, stdout, stderr, err := runCommand(command, input, environment, workingDirectory)
 	if err != nil {
 		return err
 	}
@@ -93,6 +97,7 @@ func dataSourceShellScriptRead(d *schema.ResourceData, meta interface{}) error {
 
 	d.Set("stdout", stdout)
 	d.Set("stderr", stderr)
+	d.Set("extraout", extraout)
 	d.SetId(hash(command))
 	return nil
 }
@@ -137,8 +142,8 @@ func runCommand(command string, input string, environment []string, workingDirec
 	defer os.Remove(diffOutputFile.Name())
 
 	// Setup the command
-	command = fmt.Sprintf("cd %s && %s", workingDirectory, command)
 	cmd := exec.Command(shell, flag, command)
+	cmd.Dir = workingDirectory
 	stdin := strings.NewReader(input)
 	cmd.Stdin = stdin
 	environment = append(environment, os.Environ()...)
