@@ -34,6 +34,15 @@ func readEnvironmentVariables(ev map[string]interface{}) []string {
 	return variables
 }
 
+func printStackTrace(stack []string) {
+	log.Printf("-------------------------")
+	log.Printf("[DEBUG] Current stack:")
+	for _, v := range stack {
+		log.Printf("[DEBUG] -- %s", v)
+	}
+	log.Printf("-------------------------")
+}
+
 func parseJSON(b []byte) (map[string]string, error) {
 	tb := bytes.Trim(b, "\x00")
 	s := string(tb)

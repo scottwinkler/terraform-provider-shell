@@ -1,7 +1,6 @@
 package shell
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/hashicorp/terraform/helper/schema"
@@ -72,7 +71,9 @@ func dataSourceShellScriptRead(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	if newState == nil {
-		return fmt.Errorf("Error: state from read operation cannot be nil")
+		log.Printf("[DEBUG] State from read operation was nil. Marking resource for deletion.")
+		d.SetId("")
+		return nil
 	}
 	d.Set("output", newState.output)
 
