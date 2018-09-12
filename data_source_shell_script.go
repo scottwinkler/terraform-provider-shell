@@ -1,4 +1,4 @@
-package shell
+package main
 
 import (
 	"crypto/sha256"
@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -56,6 +57,10 @@ func dataSourceShellScript() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"extraout": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 			"output": {
 				Type:     schema.TypeMap,
 				Computed: true,
@@ -77,11 +82,11 @@ func dataSourceShellScriptRead(d *schema.ResourceData, meta interface{}) error {
 	shellMutexKV.Lock(shellScriptMutexKey)
 	defer shellMutexKV.Unlock(shellScriptMutexKey)
 
-	stdout, stderr, err := runCommand(command, input, environment, workingDirectory)
+	extraout, stdout, stderr, err := runCommand(command, input, environment, workingDirectory)
 	if err != nil {
 		return err
 	}
-	output, err := parseJSON(stdout)
+	output, err := parseJSON(extraout)
 	if err != nil {
 		log.Printf("[DEBUG] error parsing sdout into json: %v", err)
 		output = make(map[string]string)
@@ -92,6 +97,7 @@ func dataSourceShellScriptRead(d *schema.ResourceData, meta interface{}) error {
 
 	d.Set("stdout", stdout)
 	d.Set("stderr", stderr)
+	d.Set("extraout", extraout)
 	d.SetId(hash(command))
 	return nil
 }
@@ -116,7 +122,7 @@ func readEnvironmentVariables(ev map[string]interface{}) []string {
 	return variables
 }
 
-func runCommand(command string, input string, environment []string, workingDirectory string) (string, string, error) {
+func runCommand(command string, input string, environment []string, workingDirectory string) (string, string, string, error) {
 	const maxBufSize = 8 * 1024
 	// Execute the command using a shell
 	var shell, flag string
@@ -128,9 +134,16 @@ func runCommand(command string, input string, environment []string, workingDirec
 		flag = "-c"
 	}
 
+	// Setup new fd to read just diff data, rather than abuse stdout
+	diffOutputFile, diffErr := ioutil.TempFile("", "diff-output")
+	if diffErr != nil {
+	    log.Fatal(diffErr)
+	}
+	defer os.Remove(diffOutputFile.Name())
+
 	// Setup the command
-	command = fmt.Sprintf("cd %s && %s", workingDirectory, command)
 	cmd := exec.Command(shell, flag, command)
+	cmd.Dir = workingDirectory
 	stdin := strings.NewReader(input)
 	cmd.Stdin = stdin
 	environment = append(environment, os.Environ()...)
@@ -139,21 +152,30 @@ func runCommand(command string, input string, environment []string, workingDirec
 	stderr, _ := circbuf.NewBuffer(maxBufSize)
 	cmd.Stderr = io.Writer(stderr)
 	cmd.Stdout = io.Writer(stdout)
+	cmd.ExtraFiles = []*os.File{diffOutputFile}
 
 	// Output what we're about to run
 	log.Printf("[DEBUG] shell script going to execute: %s %s \"%s\"", shell, flag, command)
 
 	// Run the command to completion
 	err := cmd.Run()
-
 	if err != nil {
-		return "", "", fmt.Errorf("Error running command '%s': '%v'", command, err)
+		return "", "", "", fmt.Errorf("Error running command '%s': '%v'", command, err)
 	}
+
+	//read back diff output contents
+	diffOutputBytes, diffErr := ioutil.ReadFile(diffOutputFile.Name()) // just pass the file name
+    if diffErr != nil {
+        fmt.Print(diffErr)
+    }
+    diffOutputContents := string(diffOutputBytes)
 
 	log.Printf("[DEBUG] shell script command stdout was: \"%s\"", stdout.String())
 	log.Printf("[DEBUG] shell script command stderr was: \"%s\"", stderr.String())
-	return stdout.String(), stderr.String(), nil
+	log.Printf("[DEBUG] shell script command diff was: \"%s\"", diffOutputContents)
+	return diffOutputContents, stdout.String(), stderr.String(), nil
 }
+
 func hash(s string) string {
 	sha := sha256.Sum256([]byte(s))
 	return hex.EncodeToString(sha[:])
