@@ -86,7 +86,7 @@ func dataSourceShellScriptRead(d *schema.ResourceData, meta interface{}) error {
 	if err != nil {
 		return err
 	}
-	output, err := parseJSON(stdout)
+	output, err := parseJSON(extraout)
 	if err != nil {
 		log.Printf("[DEBUG] error parsing sdout into json: %v", err)
 		output = make(map[string]string)
