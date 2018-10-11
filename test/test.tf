@@ -1,5 +1,5 @@
 provider "shell" {}
-/*
+
 //test complete data resource 
 data "shell_script" "test1" {
   lifecycle_commands {
@@ -72,7 +72,7 @@ resource "shell_script" "test4" {
     yolo = "yolo"
   }
 }
-*/
+
 //test complete resource
 resource "shell_script" "test5" {
   lifecycle_commands {

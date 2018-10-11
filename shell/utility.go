@@ -15,13 +15,13 @@ import (
 
 // State is a wrapper around both the input and output attributes that are relavent for updates
 type State struct {
-	environment []string
-	output      map[string]string
+	Environment []string
+	Output      map[string]string
 }
 
 // NewState is the constructor for State
 func NewState(environment []string, output map[string]string) *State {
-	return &State{environment: environment, output: output}
+	return &State{Environment: environment, Output: output}
 }
 
 func readEnvironmentVariables(ev map[string]interface{}) []string {
@@ -70,7 +70,7 @@ func runCommand(command string, state *State, environment []string, workingDirec
 	// Setup the command
 	command = fmt.Sprintf("cd %s && %s", workingDirectory, command)
 	cmd := exec.Command(shell, flag, command)
-	input, _ := json.Marshal(state)
+	input, _ := json.Marshal(state.Output)
 	stdin := bytes.NewReader(input)
 	cmd.Stdin = stdin
 	environment = append(environment, os.Environ()...)
@@ -89,12 +89,9 @@ func runCommand(command string, state *State, environment []string, workingDirec
 
 	// Run the command to completion
 	err = cmd.Run()
-	if err != nil {
-		return nil, fmt.Errorf("Error running command: '%v'", err)
-	}
 	pw.Close()
-
 	log.Printf("[DEBUG] Command execution completed. Reading from output pipe: >&3")
+
 	//read back diff output from pipe
 	data := make([]byte, maxBufSize)
 	pr.Read(data)
@@ -102,6 +99,10 @@ func runCommand(command string, state *State, environment []string, workingDirec
 	log.Printf("[DEBUG] shell script command stdout: \"%s\"", stdout.String())
 	log.Printf("[DEBUG] shell script command stderr: \"%s\"", stderr.String())
 	log.Printf("[DEBUG] shell script command output: \"%s\"", string(data))
+
+	if err != nil {
+		return nil, fmt.Errorf("Error running command: '%v'", err)
+	}
 
 	output, err := parseJSON(data)
 	if err != nil {

@@ -115,7 +115,7 @@ func create(d *schema.ResourceData, meta interface{}, stack []string) error {
 			return err
 		}
 	} else {
-		d.Set("output", newState.output)
+		d.Set("output", newState.Output)
 	}
 
 	//create random uuid for the id
@@ -158,20 +158,20 @@ func read(d *schema.ResourceData, meta interface{}, stack []string) error {
 	if newState == nil {
 		log.Printf("[DEBUG] State from read operation was nil. Marking resource for deletion.")
 		d.SetId("")
-	} else {
-		log.Printf("[DEBUG] output:|%v|", output)
-		log.Printf("[DEBUG] new output:|%v|", newState.output)
-		isStateEqual := reflect.DeepEqual(output, newState.output)
-		isNewResource := d.IsNewResource()
-		isUpdatedResource := stack[0] == "update"
-		if !isStateEqual && !isNewResource && !isUpdatedResource {
-			log.Printf("[DEBUG] Previous state not equal to new state. Marking resource as dirty to trigger update.")
-			d.Set("dirty", true)
-			return nil
-		}
-
+		return nil
 	}
-	d.Set("output", newState.output)
+	log.Printf("[DEBUG] output:|%v|", output)
+	log.Printf("[DEBUG] new output:|%v|", newState.Output)
+	isStateEqual := reflect.DeepEqual(output, newState.Output)
+	isNewResource := d.IsNewResource()
+	isUpdatedResource := stack[0] == "update"
+	if !isStateEqual && !isNewResource && !isUpdatedResource {
+		log.Printf("[DEBUG] Previous state not equal to new state. Marking resource as dirty to trigger update.")
+		d.Set("dirty", true)
+		return nil
+	}
+
+	d.Set("output", newState.Output)
 
 	return nil
 }
@@ -227,7 +227,7 @@ func update(d *schema.ResourceData, meta interface{}, stack []string) error {
 			return err
 		}
 	} else {
-		d.Set("output", newState.output)
+		d.Set("output", newState.Output)
 	}
 	return nil
 }

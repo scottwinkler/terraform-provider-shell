@@ -75,7 +75,7 @@ func dataSourceShellScriptRead(d *schema.ResourceData, meta interface{}) error {
 		d.SetId("")
 		return nil
 	}
-	d.Set("output", newState.output)
+	d.Set("output", newState.Output)
 
 	//create random uuid for the id
 	id := xid.New().String()
