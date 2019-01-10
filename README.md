@@ -51,13 +51,12 @@ In the example above I am changing my working_directory, setting some environmen
 
 Stdout and stderr are available in the debug log files. 
 
+## Python Support
+There is now an example for how to use the shell provider to invoke python files. Please check in the test/python-example folder for more information on this. Essentially it is an adapter around the shell resource that invokes methods on an interface that you implement.
+
 ## Develop
 If you wish to build this yourself, follow the instructions:
 
-	cd ~/go/src/github.com/scottwinkler/terraform-provider-shell
-	git clone https://github.com/scottwinkler/terraform-provider-shell.git
 	cd terraform-provider-shell
-	go get				
-	go install
-	mv ../../../../bin/terraform-provider-shell .			
+	dep ensure		
 	
