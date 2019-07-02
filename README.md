@@ -22,20 +22,20 @@ To use a data resource you need to implement the read command. Any output to std
 
 	#accessing the output from the data resource
 	output "commit_id" {
-  		value = "${data.shell_script.test.output["commit_id"]}"
+  		value = data.shell_script.test.output["commit_id"]
 	}
 
 Resources are a bit more complicated. You must implement the create, and delete lifecycle commands, but read and update are also optionally available. If you choose not to implement the read command, then create (and update if you are using it) must output the state in the form of a properly formatted json. The local state will not be synced with the actual state, but for many applications that is not a problem. If you choose not to implement update, then if a change occurs that would trigger an update the resource will be instead be destroyed and then recreated. Again, for many applications this is not a problem, update can be tricky to use as it depends a lot on the use case. If you implement read, then you must output the state in the form of a properly formatted json, and you should not output the state in either the create or update scripts. See the examples in the test folder for how to do each of these.
 
 	resource "shell_script" "test" {
 		lifecycle_commands {
-			create = "${file("${path.module}/scripts/create.sh")}"
-			read   = "${file("${path.module}/scripts/read.sh")}"
-			update = "${file("${path.module}/scripts/update.sh")}"
-			delete = "${file("${path.module}/scripts/delete.sh")}"
+			create = file("${path.module}/scripts/create.sh")
+			read   = file("${path.module}/scripts/read.sh")
+			update = file("${path.module}/scripts/update.sh")
+			delete = file("${path.module}/scripts/delete.sh")
 		}
 
-		working_directory = "${path.module}"
+		working_directory = path.module
 
 		environment = {
 			yolo = "yolo"
@@ -44,7 +44,7 @@ Resources are a bit more complicated. You must implement the create, and delete 
 	}
 
 	output "commit_id" {
-	value = "${shell_script.test.output["commit_id"]}"
+	value = shell_script.test.output["commit_id"]
 	}
 
 In the example above I am changing my working_directory, setting some environment variables that will be utilized by all my scripts, and configuring my lifecycle commands for create, read, update and delete. Create and Update should modify the resource but not update the state, while Read should update the state but not modify the resource. An example shell script resouce could have a file being written to in the create. Read would simply cat that previously created file and output it to >&3. Update could measure the changes from the old state (available through stdin) and the new state (implicitly available through environment variables) to decide how best to handle an update. Again since this is a custom resource it is up to you to decide how best to handle updates, in many cases it may make sense not to implement update at all and rely on just create/read/delete. Delete needs to clean up any resources that were created but does not need to return anything. State data is available in the output variable, which is mapped from the json of your read command.
@@ -58,5 +58,5 @@ There is now an example for how to use the shell provider to invoke python files
 If you wish to build this yourself, follow the instructions:
 
 	cd terraform-provider-shell
-	dep ensure		
+	go build
 	
