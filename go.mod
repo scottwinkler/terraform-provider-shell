@@ -8,3 +8,5 @@ require (
 	github.com/rs/xid v1.2.1
 	github.com/scottwinkler/terraform-provider-shell v0.0.0-20190308051913-56533de967fb
 )
+
+replace git.apache.org/thrift.git => github.com/apache/thrift v0.0.0-20180902110319-2566ecd5d999
