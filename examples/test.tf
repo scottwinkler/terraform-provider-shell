@@ -1,7 +1,7 @@
 provider "shell" {}
 
 //test complete data resource 
-data "shell_script" "test1" {
+data "shell_script" "test" {
   lifecycle_commands {
     read = <<EOF
       echo '{"commit_id": "b8f2b8b"}' >&3
@@ -10,7 +10,7 @@ data "shell_script" "test1" {
 }
 
 output "commit_id" {
-  value = "${data.shell_script.test1.output["commit_id"]}"
+  value = data.shell_script.test.output["commit_id"]
 }
 
 //test resource with no read or update
@@ -76,20 +76,20 @@ resource "shell_script" "test4" {
 //test complete resource
 resource "shell_script" "test5" {
   lifecycle_commands {
-    create = "${file("${path.module}/scripts/create.sh")}"
-    read   = "${file("${path.module}/scripts/read.sh")}"
-    update = "${file("${path.module}/scripts/update.sh")}"
-    delete = "${file("${path.module}/scripts/delete.sh")}"
+    create = file("${path.module}/scripts/create.sh")
+    read   = file("${path.module}/scripts/read.sh")
+    update = file("${path.module}/scripts/update.sh")
+    delete = file("${path.module}/scripts/delete.sh")
   }
 
   working_directory = "${path.module}"
 
-  environment = {
+  environment {
     yolo = "yolo"
     ball = "room"
   }
 }
 
 output "commit_id2" {
-  value = "${shell_script.test5.output["commit_id"]}"
+  value = shell_script.test5.output["commit_id"]
 }
