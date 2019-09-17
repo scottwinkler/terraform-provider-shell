@@ -93,18 +93,24 @@ func runCommand(command string, state *State, environment []string, workingDirec
 	log.Printf("[DEBUG] Command execution completed. Reading from output pipe: >&3")
 
 	//read back diff output from pipe
-	data := make([]byte, maxBufSize)
-	pr.Read(data)
-
+	buffer := new(bytes.Buffer)
+	for {
+		tmpdata := make([]byte, maxBufSize)
+		bytecount, _ := pr.Read(tmpdata)
+		if bytecount == 0 {
+			break
+		}
+		buffer.Write(tmpdata)
+	}
 	log.Printf("[DEBUG] shell script command stdout: \"%s\"", stdout.String())
 	log.Printf("[DEBUG] shell script command stderr: \"%s\"", stderr.String())
-	log.Printf("[DEBUG] shell script command output: \"%s\"", string(data))
+	log.Printf("[DEBUG] shell script command output: \"%s\"", buffer.String())
 
 	if err != nil {
 		return nil, fmt.Errorf("Error running command: '%v'", err)
 	}
 
-	output, err := parseJSON(data)
+	output, err := parseJSON(buffer.Bytes())
 	if err != nil {
 		log.Printf("[DEBUG] Unable to unmarshall data to map[string]string: '%v'", err)
 		return nil, nil
