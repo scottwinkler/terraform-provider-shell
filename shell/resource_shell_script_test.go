@@ -80,7 +80,7 @@ func TestAccShellShellScript_complete(t *testing.T) {
 				Config: testAccShellScriptConfig_complete(rString),
 
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr(resourceName, "output.%", "1"),
+					resource.TestCheckResourceAttr(resourceName, "output.%", "2"),
 					resource.TestCheckResourceAttr(resourceName, "output.out1", rString),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
@@ -182,6 +182,7 @@ func testAccShellScriptConfig_complete(outValue string) string {
 
 		environment = {
 			filename= "create_complete.json"
+			testdatasize = "10240"						
 			out1 = "%s"
 		}
 	  }
