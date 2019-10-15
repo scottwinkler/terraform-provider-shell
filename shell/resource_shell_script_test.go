@@ -186,10 +186,10 @@ func testAccShellScriptConfig_complete(outValue string) string {
 			testdatasize = "10240"						
 			out1 = "%s"
 		}
-	  }
 
-	  triggers = {
-		  key = "value"
+		triggers = {
+			key = "value"
+		}
 	  }
 `, outValue)
 }
