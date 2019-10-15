@@ -4,7 +4,7 @@ import (
 	"log"
 	"reflect"
 
-	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/rs/xid"
 )
 
@@ -44,6 +44,11 @@ func resourceShellScript() *schema.Resource {
 						},
 					},
 				},
+			},
+			"triggers": {
+				Type:     schema.TypeMap,
+				Optional: true,
+				ForceNew: true,
 			},
 			"environment": {
 				Type:     schema.TypeMap,

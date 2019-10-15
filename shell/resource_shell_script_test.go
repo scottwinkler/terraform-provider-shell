@@ -2,11 +2,12 @@ package shell
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
-	"github.com/hashicorp/terraform/helper/acctest"
-	"github.com/hashicorp/terraform/helper/resource"
-	"github.com/hashicorp/terraform/terraform"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/acctest"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 )
 
 func TestAccShellShellScript_basic(t *testing.T) {
@@ -90,7 +91,7 @@ func TestAccShellShellScript_complete(t *testing.T) {
 }
 
 func testAccCheckShellScriptDestroy(s *terraform.State) error {
-	/*for _, rs := range s.RootModule().Resources {
+	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "shell_script" {
 			continue
 		}
@@ -98,7 +99,7 @@ func testAccCheckShellScriptDestroy(s *terraform.State) error {
 		if _, err := os.Stat(fileName); os.IsExist(err) {
 			return fmt.Errorf("Shell Script file failed to cleanup")
 		}
-	}*/
+	}
 	return nil
 }
 
@@ -185,6 +186,10 @@ func testAccShellScriptConfig_complete(outValue string) string {
 			testdatasize = "10240"						
 			out1 = "%s"
 		}
+	  }
+
+	  triggers = {
+		  key = "value"
 	  }
 `, outValue)
 }
