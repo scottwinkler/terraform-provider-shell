@@ -23,7 +23,7 @@ To use a data resource you need to implement the read command. Any output to std
 
 	#accessing the output from the data resource
 	output "commit_id" {
-  		value = data.shell_script.test.output["commit_id"]
+  		value = data.shell_script.test1.output["commit_id"]
 	}
 
 Resources are a bit more complicated. You must implement the create, and delete lifecycle commands, but read and update are also optionally available. If you choose not to implement the read command, then create (and update if you are using it) must output the state in the form of a properly formatted json. The local state will not be synced with the actual state, but for many applications that is not a problem. If you choose not to implement update, then if a change occurs that would trigger an update the resource will be instead be destroyed and then recreated. Again, for many applications this is not a problem, update can be tricky to use as it depends a lot on the use case. If you implement read, then you must output the state in the form of a properly formatted json, and you should not output the state in either the create or update scripts. See the examples in the test folder for how to do each of these.
