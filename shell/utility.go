@@ -73,7 +73,7 @@ func runCommand(command string, state *State, environment []string, workingDirec
 	input, _ := json.Marshal(state.Output)
 	stdin := bytes.NewReader(input)
 	cmd.Stdin = stdin
-	environment = append(environment, os.Environ()...)
+	environment = append(os.Environ(), environment...)
 	cmd.Env = environment
 	stdout, _ := circbuf.NewBuffer(maxBufSize)
 	stderr, _ := circbuf.NewBuffer(maxBufSize)
