@@ -50,7 +50,11 @@ func parseJSON(b []byte) (map[string]string, error) {
 	err := json.Unmarshal([]byte(s), &f)
 	output := make(map[string]string)
 	for k, v := range f {
-		output[k] = v.(string)
+		outputString, ok := v.(string)
+		if !ok {
+			outputString = ""
+		}
+		output[k] = outputString
 	}
 	return output, err
 }
