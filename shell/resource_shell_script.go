@@ -113,7 +113,7 @@ func create(d *schema.ResourceData, meta interface{}, stack []string) error {
 	workingDirectory := d.Get("working_directory").(string)
 	d.MarkNewResource()
 	//obtain exclusive lock
-	//shellMutexKV.Lock(shellScriptMutexKey)
+	shellMutexKV.Lock(shellScriptMutexKey)
 
 	output := make(map[string]string)
 	state := NewState(environment, output)
@@ -121,7 +121,7 @@ func create(d *schema.ResourceData, meta interface{}, stack []string) error {
 	if err != nil {
 		return err
 	}
-	//shellMutexKV.Unlock(shellScriptMutexKey)
+	shellMutexKV.Unlock(shellScriptMutexKey)
 
 	//if create doesn't return a new state then must call the read operation
 	if newState == nil {
@@ -165,7 +165,7 @@ func read(d *schema.ResourceData, meta interface{}, stack []string) error {
 	}
 
 	//obtain exclusive lock
-	//shellMutexKV.Lock(shellScriptMutexKey)
+	shellMutexKV.Lock(shellScriptMutexKey)
 
 	state := NewState(environment, output)
 	newState, err := runCommand(command, state, environment, workingDirectory, interpreter)
@@ -173,7 +173,7 @@ func read(d *schema.ResourceData, meta interface{}, stack []string) error {
 		return err
 	}
 
-	//shellMutexKV.Unlock(shellScriptMutexKey)
+	shellMutexKV.Unlock(shellScriptMutexKey)
 	if newState == nil {
 		log.Printf("[DEBUG] State from read operation was nil. Marking resource for deletion.")
 		d.SetId("")
@@ -231,7 +231,7 @@ func update(d *schema.ResourceData, meta interface{}, stack []string) error {
 	}
 
 	//obtain exclusive lock
-	//shellMutexKV.Lock(shellScriptMutexKey)
+	shellMutexKV.Lock(shellScriptMutexKey)
 
 	state := NewState(oldEnvironment, output)
 	newState, err := runCommand(command, state, environment, workingDirectory, interpreter)
@@ -239,7 +239,7 @@ func update(d *schema.ResourceData, meta interface{}, stack []string) error {
 		return err
 	}
 
-	//shellMutexKV.Unlock(shellScriptMutexKey)
+	shellMutexKV.Unlock(shellScriptMutexKey)
 
 	//if update doesn't return a new state then must call the read operation
 	if newState == nil {
@@ -273,8 +273,8 @@ func delete(d *schema.ResourceData, meta interface{}, stack []string) error {
 	}
 
 	//obtain exclusive lock
-	//shellMutexKV.Lock(shellScriptMutexKey)
-	//defer shellMutexKV.Unlock(shellScriptMutexKey)
+	shellMutexKV.Lock(shellScriptMutexKey)
+	defer shellMutexKV.Unlock(shellScriptMutexKey)
 
 	state := NewState(environment, output)
 	_, err := runCommand(command, state, environment, workingDirectory, interpreter)
