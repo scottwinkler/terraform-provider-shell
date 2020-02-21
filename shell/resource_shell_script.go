@@ -108,7 +108,6 @@ func create(d *schema.ResourceData, meta interface{}, stack []string) error {
 	environment := readEnvironmentVariables(vars)
 
 	inter := d.Get("interpreter").(map[string]interface{})
-	interpreter := readInterpreterVariables(inter)
 
 	workingDirectory := d.Get("working_directory").(string)
 	d.MarkNewResource()
@@ -117,7 +116,7 @@ func create(d *schema.ResourceData, meta interface{}, stack []string) error {
 
 	output := make(map[string]string)
 	state := NewState(environment, output)
-	newState, err := runCommand(command, state, environment, workingDirectory, interpreter)
+	newState, err := runCommand(command, state, environment, workingDirectory, inter)
 	if err != nil {
 		return err
 	}
@@ -155,7 +154,6 @@ func read(d *schema.ResourceData, meta interface{}, stack []string) error {
 	environment := readEnvironmentVariables(vars)
 
 	inter := d.Get("interpreter").(map[string]interface{})
-	interpreter := readInterpreterVariables(inter)
 
 	workingDirectory := d.Get("working_directory").(string)
 	o := d.Get("output").(map[string]interface{})
@@ -168,7 +166,7 @@ func read(d *schema.ResourceData, meta interface{}, stack []string) error {
 	shellMutexKV.Lock(shellScriptMutexKey)
 
 	state := NewState(environment, output)
-	newState, err := runCommand(command, state, environment, workingDirectory, interpreter)
+	newState, err := runCommand(command, state, environment, workingDirectory, inter)
 	if err != nil {
 		return err
 	}
@@ -221,7 +219,6 @@ func update(d *schema.ResourceData, meta interface{}, stack []string) error {
 	environment := readEnvironmentVariables(vars)
 
 	inter := d.Get("interpreter").(map[string]interface{})
-	interpreter := readInterpreterVariables(inter)
 
 	workingDirectory := d.Get("working_directory").(string)
 	o := d.Get("output").(map[string]interface{})
@@ -234,7 +231,7 @@ func update(d *schema.ResourceData, meta interface{}, stack []string) error {
 	shellMutexKV.Lock(shellScriptMutexKey)
 
 	state := NewState(oldEnvironment, output)
-	newState, err := runCommand(command, state, environment, workingDirectory, interpreter)
+	newState, err := runCommand(command, state, environment, workingDirectory, inter)
 	if err != nil {
 		return err
 	}
@@ -263,7 +260,6 @@ func delete(d *schema.ResourceData, meta interface{}, stack []string) error {
 	environment := readEnvironmentVariables(vars)
 
 	inter := d.Get("interpreter").(map[string]interface{})
-	interpreter := readInterpreterVariables(inter)
 
 	workingDirectory := d.Get("working_directory").(string)
 	o := d.Get("output").(map[string]interface{})
@@ -277,7 +273,7 @@ func delete(d *schema.ResourceData, meta interface{}, stack []string) error {
 	defer shellMutexKV.Unlock(shellScriptMutexKey)
 
 	state := NewState(environment, output)
-	_, err := runCommand(command, state, environment, workingDirectory, interpreter)
+	_, err := runCommand(command, state, environment, workingDirectory, inter)
 	if err != nil {
 		return err
 	}

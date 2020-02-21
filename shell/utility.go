@@ -34,21 +34,6 @@ func readEnvironmentVariables(ev map[string]interface{}) []string {
 	return variables
 }
 
-func readInterpreterVariables(ev map[string]interface{}) [2]string {
-	var variables [2]string
-	if ev != nil {
-		for k := range ev {
-			if k == "flag" {
-				variables[0] = ev[k].(string)
-			} else if k == "shell" {
-				variables[1] = ev[k].(string)
-			}
-		}
-
-	}
-	return variables
-}
-
 func printStackTrace(stack []string) {
 	log.Printf("-------------------------")
 	log.Printf("[DEBUG] Current stack:")
@@ -70,13 +55,21 @@ func parseJSON(b []byte) (map[string]string, error) {
 	return output, err
 }
 
-func runCommand(command string, state *State, environment []string, workingDirectory string, interpreter [2]string) (*State, error) {
+func runCommand(command string, state *State, environment []string, workingDirectory string, interpreter map[string]interface{}) (*State, error) {
 	const maxBufSize = 8 * 1024
 	// Execute the command using a shell
 	var shell, flag string
-	if interpreter[0] != "" {
-		shell = interpreter[1]
-		flag = interpreter[0]
+	if _, ok := interpreter["shell"]; ok {
+		if value, ok := interpreter["shell"]; ok {
+			shell = value.(string)
+		} else {
+			shell = ""
+		}
+		if value, ok := interpreter["flag"]; ok {
+			flag = value.(string)
+		} else {
+			flag = ""
+		}
 	} else {
 		if runtime.GOOS == "windows" {
 			shell = "cmd"

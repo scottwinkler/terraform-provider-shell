@@ -64,7 +64,6 @@ func dataSourceShellScriptRead(d *schema.ResourceData, meta interface{}) error {
 	environment := readEnvironmentVariables(vars)
 
 	inter := d.Get("interpreter").(map[string]interface{})
-	interpreter := readInterpreterVariables(inter)
 
 	workingDirectory := d.Get("working_directory").(string)
 	output := make(map[string]string)
@@ -74,7 +73,7 @@ func dataSourceShellScriptRead(d *schema.ResourceData, meta interface{}) error {
 	defer shellMutexKV.Unlock(shellScriptMutexKey)
 
 	state := NewState(environment, output)
-	newState, err := runCommand(command, state, environment, workingDirectory, interpreter)
+	newState, err := runCommand(command, state, environment, workingDirectory, inter)
 	if err != nil {
 		return err
 	}
