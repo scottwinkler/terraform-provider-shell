@@ -44,6 +44,11 @@ func dataSourceShellScript() *schema.Resource {
 				Computed: true,
 				Elem:     schema.TypeString,
 			},
+			"interpreter": {
+				Type:     schema.TypeMap,
+				Optional: true,
+				Elem:     schema.TypeString,
+			},
 		},
 	}
 }
@@ -57,15 +62,19 @@ func dataSourceShellScriptRead(d *schema.ResourceData, meta interface{}) error {
 	command := value.(string)
 	vars := d.Get("environment").(map[string]interface{})
 	environment := readEnvironmentVariables(vars)
+
+	inter := d.Get("interpreter").(map[string]interface{})
+	interpreter := readInterpreterVariables(inter)
+
 	workingDirectory := d.Get("working_directory").(string)
 	output := make(map[string]string)
 
 	//obtain exclusive lock
-	shellMutexKV.Lock(shellScriptMutexKey)
-	defer shellMutexKV.Unlock(shellScriptMutexKey)
+	//shellMutexKV.Lock(shellScriptMutexKey)
+	//defer shellMutexKV.Unlock(shellScriptMutexKey)
 
 	state := NewState(environment, output)
-	newState, err := runCommand(command, state, environment, workingDirectory)
+	newState, err := runCommand(command, state, environment, workingDirectory, interpreter)
 	if err != nil {
 		return err
 	}

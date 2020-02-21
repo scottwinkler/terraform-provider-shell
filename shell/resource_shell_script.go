@@ -71,6 +71,12 @@ func resourceShellScript() *schema.Resource {
 				Optional: true,
 				Default:  false,
 			},
+			"interpreter": {
+				Type:     schema.TypeMap,
+				Optional: true,
+				Computed: true,
+				Elem:     schema.TypeString,
+			},
 		},
 	}
 }
@@ -100,18 +106,22 @@ func create(d *schema.ResourceData, meta interface{}, stack []string) error {
 	command := c["create"].(string)
 	vars := d.Get("environment").(map[string]interface{})
 	environment := readEnvironmentVariables(vars)
+
+	inter := d.Get("interpreter").(map[string]interface{})
+	interpreter := readInterpreterVariables(inter)
+
 	workingDirectory := d.Get("working_directory").(string)
 	d.MarkNewResource()
 	//obtain exclusive lock
-	shellMutexKV.Lock(shellScriptMutexKey)
+	//shellMutexKV.Lock(shellScriptMutexKey)
 
 	output := make(map[string]string)
 	state := NewState(environment, output)
-	newState, err := runCommand(command, state, environment, workingDirectory)
+	newState, err := runCommand(command, state, environment, workingDirectory, interpreter)
 	if err != nil {
 		return err
 	}
-	shellMutexKV.Unlock(shellScriptMutexKey)
+	//shellMutexKV.Unlock(shellScriptMutexKey)
 
 	//if create doesn't return a new state then must call the read operation
 	if newState == nil {
@@ -143,6 +153,10 @@ func read(d *schema.ResourceData, meta interface{}, stack []string) error {
 
 	vars := d.Get("environment").(map[string]interface{})
 	environment := readEnvironmentVariables(vars)
+
+	inter := d.Get("interpreter").(map[string]interface{})
+	interpreter := readInterpreterVariables(inter)
+
 	workingDirectory := d.Get("working_directory").(string)
 	o := d.Get("output").(map[string]interface{})
 	output := make(map[string]string)
@@ -151,21 +165,20 @@ func read(d *schema.ResourceData, meta interface{}, stack []string) error {
 	}
 
 	//obtain exclusive lock
-	shellMutexKV.Lock(shellScriptMutexKey)
+	//shellMutexKV.Lock(shellScriptMutexKey)
 
 	state := NewState(environment, output)
-	newState, err := runCommand(command, state, environment, workingDirectory)
+	newState, err := runCommand(command, state, environment, workingDirectory, interpreter)
 	if err != nil {
 		return err
 	}
 
-	shellMutexKV.Unlock(shellScriptMutexKey)
+	//shellMutexKV.Unlock(shellScriptMutexKey)
 	if newState == nil {
 		log.Printf("[DEBUG] State from read operation was nil. Marking resource for deletion.")
 		d.SetId("")
 		return nil
 	}
-	log.Printf("[DEBUG] output:|%v|", output)
 	log.Printf("[DEBUG] new output:|%v|", newState.Output)
 	isStateEqual := reflect.DeepEqual(output, newState.Output)
 	isNewResource := d.IsNewResource()
@@ -207,6 +220,9 @@ func update(d *schema.ResourceData, meta interface{}, stack []string) error {
 	vars := d.Get("environment").(map[string]interface{})
 	environment := readEnvironmentVariables(vars)
 
+	inter := d.Get("interpreter").(map[string]interface{})
+	interpreter := readInterpreterVariables(inter)
+
 	workingDirectory := d.Get("working_directory").(string)
 	o := d.Get("output").(map[string]interface{})
 	output := make(map[string]string)
@@ -215,15 +231,15 @@ func update(d *schema.ResourceData, meta interface{}, stack []string) error {
 	}
 
 	//obtain exclusive lock
-	shellMutexKV.Lock(shellScriptMutexKey)
+	//shellMutexKV.Lock(shellScriptMutexKey)
 
 	state := NewState(oldEnvironment, output)
-	newState, err := runCommand(command, state, environment, workingDirectory)
+	newState, err := runCommand(command, state, environment, workingDirectory, interpreter)
 	if err != nil {
 		return err
 	}
 
-	shellMutexKV.Unlock(shellScriptMutexKey)
+	//shellMutexKV.Unlock(shellScriptMutexKey)
 
 	//if update doesn't return a new state then must call the read operation
 	if newState == nil {
@@ -245,6 +261,10 @@ func delete(d *schema.ResourceData, meta interface{}, stack []string) error {
 	command := c["delete"].(string)
 	vars := d.Get("environment").(map[string]interface{})
 	environment := readEnvironmentVariables(vars)
+
+	inter := d.Get("interpreter").(map[string]interface{})
+	interpreter := readInterpreterVariables(inter)
+
 	workingDirectory := d.Get("working_directory").(string)
 	o := d.Get("output").(map[string]interface{})
 	output := make(map[string]string)
@@ -253,11 +273,11 @@ func delete(d *schema.ResourceData, meta interface{}, stack []string) error {
 	}
 
 	//obtain exclusive lock
-	shellMutexKV.Lock(shellScriptMutexKey)
-	defer shellMutexKV.Unlock(shellScriptMutexKey)
+	//shellMutexKV.Lock(shellScriptMutexKey)
+	//defer shellMutexKV.Unlock(shellScriptMutexKey)
 
 	state := NewState(environment, output)
-	_, err := runCommand(command, state, environment, workingDirectory)
+	_, err := runCommand(command, state, environment, workingDirectory, interpreter)
 	if err != nil {
 		return err
 	}
