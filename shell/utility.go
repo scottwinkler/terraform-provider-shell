@@ -44,6 +44,7 @@ func readInterpreterVariables(ev map[string]interface{}) [2]string {
 				variables[1] = ev[k].(string)
 			}
 		}
+
 	}
 	return variables
 }
@@ -73,15 +74,17 @@ func runCommand(command string, state *State, environment []string, workingDirec
 	const maxBufSize = 8 * 1024
 	// Execute the command using a shell
 	var shell, flag string
-	if runtime.GOOS == "windows" {
-		shell = "cmd"
-		flag = "/C"
-	} else if interpreter[0] != "" {
+	if interpreter[0] != "" {
 		shell = interpreter[1]
 		flag = interpreter[0]
 	} else {
-		shell = "/bin/sh"
-		flag = "-c"
+		if runtime.GOOS == "windows" {
+			shell = "cmd"
+			flag = "/C"
+		} else {
+			shell = "/bin/sh"
+			flag = "-c"
+		}
 	}
 
 	// Setup the command
