@@ -27,3 +27,4 @@ resources2
 src/
 .vscode
 .vscode/
+dist/
