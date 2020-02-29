@@ -1,5 +1,4 @@
-terraform-artifactory.tf
-terraform-provider-artifactory
+  
 *.dll
 *.exe
 .DS_Store
@@ -8,9 +7,9 @@ terraform.tfplan
 terraform.tfstate
 bin/
 modules-dev/
-pkg/
-vendor/*/
+/pkg/
 website/.vagrant
+website/.bundle
 website/build
 website/node_modules
 .vagrant/
@@ -22,9 +21,20 @@ website/node_modules
 *~
 .*.swp
 .idea
-resources
-resources2
-src/
 .vscode
-.vscode/
+*.iml
+*.test
+*.iml
+log.txt
+
+website/vendor
+
+# Test exclusions
+!command/test-fixtures/**/*.tfstate
+!command/test-fixtures/**/.terraform/
+
+# Keep windows files with windows line endings
+*.winfile eol=crlf
+/.vs
+node_modules
 dist/
