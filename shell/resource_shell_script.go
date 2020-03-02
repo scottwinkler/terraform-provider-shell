@@ -64,6 +64,7 @@ func resourceShellScript() *schema.Resource {
 			"output": {
 				Type:     schema.TypeMap,
 				Computed: true,
+				ForceNew: true,
 				Elem:     schema.TypeString,
 			},
 			"dirty": {

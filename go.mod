@@ -9,6 +9,7 @@ require (
 	github.com/hashicorp/terraform v0.11.11 // indirect
 	github.com/hashicorp/terraform-plugin-sdk v1.0.0
 	github.com/kisielk/gotool v1.0.0 // indirect
+	github.com/mitchellh/go-linereader v0.0.0-20190213213312-1b945b3263eb
 	github.com/mitchellh/hashstructure v0.0.0-20160209213820-6b17d669fac5 // indirect
 	github.com/rs/xid v1.2.1
 )

@@ -9,8 +9,10 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 
 	"github.com/armon/circbuf"
+	"github.com/mitchellh/go-linereader"
 )
 
 // State is a wrapper around both the input and output attributes that are relavent for updates
@@ -72,54 +74,96 @@ func runCommand(command string, state *State, environment []string, workingDirec
 	}
 
 	// Setup the command
-	command = fmt.Sprintf("cd %s && %s", workingDirectory, command)
 	cmd := exec.Command(shell, flag, command)
 	input, _ := json.Marshal(state.Output)
 	stdin := bytes.NewReader(input)
 	cmd.Stdin = stdin
 	environment = append(os.Environ(), environment...)
 	cmd.Env = environment
-	stdout, _ := circbuf.NewBuffer(maxBufSize)
-	stderr, _ := circbuf.NewBuffer(maxBufSize)
-	cmd.Stderr = io.Writer(stderr)
-	cmd.Stdout = io.Writer(stdout)
-	pr, pw, err := os.Pipe()
-	cmd.ExtraFiles = []*os.File{pw}
+	prStderr, pwStderr, err := os.Pipe()
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize pipe for stderr: %s", err)
+	}
+	cmd.Stderr = pwStderr
+	prStdout, pwStdout, err := os.Pipe()
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize pipe for stdout: %s", err)
+	}
+	cmd.Stdout = pwStdout
+	cmd.Dir = workingDirectory
+
+	prDev3, pwDev3, err := os.Pipe()
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize pipe for >&3 output: %s", err)
+	}
+	cmd.ExtraFiles = []*os.File{pwDev3}
 
 	log.Printf("[DEBUG] shell script command old state: \"%v\"", state)
 
 	// Output what we're about to run
-	log.Printf("[DEBUG] shell script going to execute: %s %s \"%s\"", shell, flag, command)
+	log.Printf("[DEBUG] shell script going to execute: %s %s", shell, flag)
+	commandLines := strings.Split(command, "\n")
+	for _, line := range commandLines {
+		log.Printf("   %s", line)
+	}
+	// Write everything we read from the pipe to the output buffer too
+	output, _ := circbuf.NewBuffer(maxBufSize)
+	teeStdout := io.TeeReader(prStdout, output)
+	teeStderr := io.TeeReader(prStderr, output)
+	// copy the teed output to the UI output
+	copyDoneStdoutCh := make(chan struct{})
+	copyDoneStderrCh := make(chan struct{})
+	go copyOutput(teeStdout, copyDoneStdoutCh)
+	go copyOutput(teeStderr, copyDoneStderrCh)
+	// Start the command
+	log.Printf("-------------------------")
+	log.Printf("[DEBUG] Starting execution...")
+	log.Printf("-------------------------")
+	err = cmd.Start()
+	if err == nil {
+		err = cmd.Wait()
+	}
 
-	// Run the command to completion
-	err = cmd.Run()
-	pw.Close()
+	// Close the write-end of the pipe so that the goroutine mirroring output
+	// ends properly.
+	pwStdout.Close()
+	pwStderr.Close()
+	pwDev3.Close()
+	log.Printf("-------------------------")
 	log.Printf("[DEBUG] Command execution completed. Reading from output pipe: >&3")
+	log.Printf("-------------------------")
 
 	//read back diff output from pipe
 	buffer := new(bytes.Buffer)
 	for {
 		tmpdata := make([]byte, maxBufSize)
-		bytecount, _ := pr.Read(tmpdata)
+		bytecount, _ := prDev3.Read(tmpdata)
 		if bytecount == 0 {
 			break
 		}
 		buffer.Write(tmpdata)
 	}
-	log.Printf("[DEBUG] shell script command stdout: \"%s\"", stdout.String())
-	log.Printf("[DEBUG] shell script command stderr: \"%s\"", stderr.String())
-	log.Printf("[DEBUG] shell script command output: \"%s\"", buffer.String())
+
+	log.Printf("[DEBUG] shell script command output:\n%s", buffer.String())
 
 	if err != nil {
 		return nil, fmt.Errorf("Error running command: '%v'", err)
 	}
 
-	output, err := parseJSON(buffer.Bytes())
+	o, err := parseJSON(buffer.Bytes())
 	if err != nil {
 		log.Printf("[DEBUG] Unable to unmarshall data to map[string]string: '%v'", err)
 		return nil, nil
 	}
-	newState := NewState(environment, output)
+	newState := NewState(environment, o)
 	log.Printf("[DEBUG] shell script command new state: \"%v\"", newState)
 	return newState, nil
+}
+
+func copyOutput(r io.Reader, doneCh chan<- struct{}) {
+	defer close(doneCh)
+	lr := linereader.New(r)
+	for line := range lr.Ch {
+		log.Printf("  %s\n", line)
+	}
 }
