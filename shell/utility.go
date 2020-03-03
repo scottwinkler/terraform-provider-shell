@@ -113,7 +113,7 @@ func runCommand(command string, state *State, environment []string, workingDirec
 	teeStderr := io.TeeReader(prStderr, output)
 	// copy the teed output to the UI output
 	copyDoneCh := make(chan struct{})
-	go copyOutput(io.MultiReader(teeStdout, teeStderr), copyDoneStdoutCh)
+	go copyOutput(io.MultiReader(teeStdout, teeStderr), copyDoneCh)
 
 	// Start the command
 	log.Printf("-------------------------")
