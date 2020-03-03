@@ -167,7 +167,7 @@ func runCommand(command string, state *State, environment []string, workingDirec
 	return newState, nil
 }
 
-func copyOutput(r io.Reader), doneCh chan<- struct{}) {
+func copyOutput(r io.Reader, doneCh chan<- struct{}) {
 	defer close(doneCh)
 	lr := linereader.New(r)
 	for line := range lr.Ch {
