@@ -111,7 +111,7 @@ func testAccShellScriptConfig_basic(outValue string) string {
 			out='{"out1": "%s"}'
 			touch create_delete.json
 			echo $out >> create_delete.json
-			cat create_delete.json >&3
+			cat create_delete.json
 EOF
 		  delete = "rm -rf create_delete.json"
 		}
@@ -131,9 +131,9 @@ func testAccShellScriptConfig_create_read_delete(outValue string) string {
 			out='{"out1": "%s"}'
 			touch create_read_delete.json
 			echo $out >> create_read_delete.json
-			cat create_read_delete.json >&3
+			cat create_read_delete.json
 EOF
-		  read   = "cat create_read_delete.json >&3"
+		  read   = "cat create_read_delete.json"
 		  delete = "rm -rf create_read_delete.json"
 		}
 
@@ -152,14 +152,14 @@ func testAccShellScriptConfig_create_update_delete(outValue string) string {
 			out='{"out1": "%s"}'
 			touch create_update_delete.json
 			echo $out >> create_update_delete.json
-			cat create_update_delete.json >&3
+			cat create_update_delete.json
 EOF
 		  update = <<EOF
 			rm -rf create_update_delete.json
 			out='{"out1": "%s"}'
 			touch "create_update_delete.json"
 			echo $out >> create_update_delete.json
-			cat create_update_delete.json >&3
+			cat create_update_delete.json
 EOF
 		  delete = "rm -rf create_update_delete.json"
 		}
@@ -183,7 +183,7 @@ func testAccShellScriptConfig_complete(outValue string) string {
 
 		environment = {
 			filename= "create_complete.json"
-			testdatasize = "10240"						
+			testdatasize = "100240"						
 			out1 = "%s"
 		}
 

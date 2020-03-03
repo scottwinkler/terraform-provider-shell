@@ -64,6 +64,7 @@ func resourceShellScript() *schema.Resource {
 			"output": {
 				Type:     schema.TypeMap,
 				Computed: true,
+				ForceNew: true,
 				Elem:     schema.TypeString,
 			},
 			"dirty": {
@@ -241,10 +242,7 @@ func delete(d *schema.ResourceData, meta interface{}, stack []string) error {
 	}
 
 	state := NewState(environment, output)
-	_, err := runCommand(command, state, environment, workingDirectory)
-	if err != nil {
-		return err
-	}
+	runCommand(command, state, environment, workingDirectory)
 
 	d.SetId("")
 	return nil
