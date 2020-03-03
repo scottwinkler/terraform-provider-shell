@@ -60,10 +60,6 @@ func dataSourceShellScriptRead(d *schema.ResourceData, meta interface{}) error {
 	workingDirectory := d.Get("working_directory").(string)
 	output := make(map[string]string)
 
-	//obtain exclusive lock
-	shellMutexKV.Lock(shellScriptMutexKey)
-	defer shellMutexKV.Unlock(shellScriptMutexKey)
-
 	state := NewState(environment, output)
 	newState, err := runCommand(command, state, environment, workingDirectory)
 	if err != nil {

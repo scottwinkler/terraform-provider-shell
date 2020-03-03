@@ -62,6 +62,8 @@ func parseJSON(b []byte) (map[string]string, error) {
 }
 
 func runCommand(command string, state *State, environment []string, workingDirectory string) (*State, error) {
+	shellMutexKV.Lock(shellScriptMutexKey)
+	defer shellMutexKV.Unlock(shellScriptMutexKey)
 	const maxBufSize = 8 * 1024
 	// Execute the command using a shell
 	var shell, flag string
@@ -80,18 +82,17 @@ func runCommand(command string, state *State, environment []string, workingDirec
 	cmd.Stdin = stdin
 	environment = append(os.Environ(), environment...)
 	cmd.Env = environment
-	prStderr, pwStderr, err := os.Pipe()
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize pipe for stderr: %s", err)
-	}
-	cmd.Stderr = pwStderr
 	prStdout, pwStdout, err := os.Pipe()
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize pipe for stdout: %s", err)
 	}
 	cmd.Stdout = pwStdout
+	prStderr, pwStderr, err := os.Pipe()
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize pipe for stderr: %s", err)
+	}
+	cmd.Stderr = pwStderr
 	cmd.Dir = workingDirectory
-
 	prDev3, pwDev3, err := os.Pipe()
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize pipe for >&3 output: %s", err)
@@ -111,10 +112,9 @@ func runCommand(command string, state *State, environment []string, workingDirec
 	teeStdout := io.TeeReader(prStdout, output)
 	teeStderr := io.TeeReader(prStderr, output)
 	// copy the teed output to the UI output
-	copyDoneStdoutCh := make(chan struct{})
-	copyDoneStderrCh := make(chan struct{})
-	go copyOutput(teeStdout, copyDoneStdoutCh)
-	go copyOutput(teeStderr, copyDoneStderrCh)
+	copyDoneCh := make(chan struct{})
+	go copyOutput(io.MultiReader(teeStdout, teeStderr), copyDoneStdoutCh)
+
 	// Start the command
 	log.Printf("-------------------------")
 	log.Printf("[DEBUG] Starting execution...")
@@ -129,6 +129,13 @@ func runCommand(command string, state *State, environment []string, workingDirec
 	pwStdout.Close()
 	pwStderr.Close()
 	pwDev3.Close()
+
+	// Cancelling the command may block the pipe reader if the file descriptor
+	// was passed to a child process which hasn't closed it. In this case the
+	// copyOutput goroutine will just hang out until exit.
+	select {
+	case <-copyDoneCh:
+	}
 	log.Printf("-------------------------")
 	log.Printf("[DEBUG] Command execution completed. Reading from output pipe: >&3")
 	log.Printf("-------------------------")
@@ -160,7 +167,7 @@ func runCommand(command string, state *State, environment []string, workingDirec
 	return newState, nil
 }
 
-func copyOutput(r io.Reader, doneCh chan<- struct{}) {
+func copyOutput(r io.Reader), doneCh chan<- struct{}) {
 	defer close(doneCh)
 	lr := linereader.New(r)
 	for line := range lr.Ch {
