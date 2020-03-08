@@ -5,7 +5,7 @@ provider "shell" {}
 data "shell_script" "test" {
   lifecycle_commands {
     read = <<EOF
-      echo '{"commit_id": "b8f2b8b"}' >&3
+      echo '{"commit_id": "b8f2b8b"}'
     EOF
   }
 }
@@ -21,7 +21,7 @@ resource "shell_script" "test2" {
       out='{"commit_id": "b8f2b8b", "environment": "$yolo", "tags_at_commit": "sometags", "project": "someproject", "current_date": "09/10/2014", "version": "someversion"}'
       touch test2.json
       echo $out >> test2.json
-      cat test2.json >&3
+      cat test2.json
     EOF
     delete = "rm -rf test2.json"
   }
@@ -38,9 +38,9 @@ resource "shell_script" "test3" {
       out='{"commit_id": "b8f2b8b", "environment": "$yolo", "tags_at_commit": "sometags", "project": "someproject", "current_date": "09/10/2014", "version": "someversion"}'
       touch test3.json
       echo $out >> test3.json
-      cat test3.json >&3
+      cat test3.json
     EOF
-    read   = "cat test3.json >&3"
+    read   = "cat test3.json"
     delete = "rm -rf test3.json"
   }
 
@@ -57,14 +57,14 @@ resource "shell_script" "test4" {
       out='{"commit_id": "b8f2b8b", "environment": "$yolo", "tags_at_commit": "sometags", "project": "someproject", "current_date": "09/10/2014", "version": "someversion"}'
       touch test4.json
       echo $out >> test4.json
-      cat test4.json >&3
+      cat test4.json
     EOF
     update = <<EOF
       rm -rf test4.json
       out='{"commit_id": "b8f2b8b", "environment": "$yolo", "tags_at_commit": "sometags", "project": "someproject", "current_date": "09/10/2014", "version": "someversion"}'
       touch test4.json
       echo $out >> test4.json
-      cat test4.json >&3
+      cat test4.json
     EOF
     delete = "rm -rf test4.json"
   }
