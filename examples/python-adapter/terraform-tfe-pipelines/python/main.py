@@ -2,7 +2,7 @@ import argparse, sys, json, os, importlib, inspect
 from abc import ABCMeta, abstractmethod
 from resources import *
 
-# example usage: python3 main.py --name=TestResource --module=test_resource  --command=read --state='{"hello":"world"} && cat state.json >&3'
+# example usage: python3 main.py --name=TestResource --module=test_resource  --command=read --state='{"hello":"world"} && cat state.json'
 def main():
     args = sys.argv
     parser = argparse.ArgumentParser()
