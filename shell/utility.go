@@ -118,6 +118,10 @@ func runCommand(command string, state *State, environment []string, workingDirec
 	log.Printf("[DEBUG] Command execution completed:")
 	log.Printf("-------------------------")
 	o := getOutputMap(stdOutput)
+	//if output is nil then no state was returned from output
+	if o == nil {
+		return nil, nil
+	}
 	newState := NewState(environment, o)
 	log.Printf("[DEBUG] shell script command new state: \"%v\"", newState)
 	return newState, nil
@@ -134,7 +138,6 @@ func readOutput(r io.Reader, logCh chan<- string, doneCh chan<- string) {
 	lr := linereader.New(r)
 	output := ""
 	for line := range lr.Ch {
-		//log.Printf("  %s", line)
 		logCh <- line
 		output += line
 	}
@@ -163,10 +166,6 @@ func parseJSON(s string) (map[string]string, error) {
 
 func getOutputMap(s string) map[string]string {
 	//expect that the end of the output will have a JSON string that can be converted to a map[string]string
-	if len(s) == 0 || s[len(s)-1:] != "}" {
-		log.Printf("[DEBUG] JSON string not found at end of output")
-		return nil
-	}
 	re := regexp.MustCompile(`(?mU){.*}`)
 	j := re.FindAllString(s, -1)
 	log.Printf("[DEBUG] JSON string found: \n%s", j)
