@@ -16,8 +16,6 @@ import (
 	"github.com/mitchellh/go-linereader"
 )
 
-const maxBufSize = 8 * 1024
-
 // State is a wrapper around both the input and output attributes that are relavent for updates
 type State struct {
 	Environment []string
@@ -179,6 +177,7 @@ func getOutputMap(s string) map[string]string {
 }
 
 func readFile(r io.Reader) string {
+	const maxBufSize = 8 * 1024
 	buffer := new(bytes.Buffer)
 	for {
 		tmpdata := make([]byte, maxBufSize)
