@@ -11,7 +11,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/armon/circbuf"
+	"regexp"
+
 	"github.com/mitchellh/go-linereader"
 )
 
@@ -45,26 +46,10 @@ func printStackTrace(stack []string) {
 	log.Printf("-------------------------")
 }
 
-func parseJSON(b []byte) (map[string]string, error) {
-	tb := bytes.Trim(b, "\x00")
-	s := string(tb)
-	var f map[string]interface{}
-	err := json.Unmarshal([]byte(s), &f)
-	output := make(map[string]string)
-	for k, v := range f {
-		outputString, ok := v.(string)
-		if !ok {
-			outputString = ""
-		}
-		output[k] = outputString
-	}
-	return output, err
-}
-
 func runCommand(command string, state *State, environment []string, workingDirectory string) (*State, error) {
 	shellMutexKV.Lock(shellScriptMutexKey)
 	defer shellMutexKV.Unlock(shellScriptMutexKey)
-	const maxBufSize = 8 * 1024
+
 	// Execute the command using a shell
 	var shell, flag string
 	if runtime.GOOS == "windows" {
@@ -93,11 +78,6 @@ func runCommand(command string, state *State, environment []string, workingDirec
 	}
 	cmd.Stderr = pwStderr
 	cmd.Dir = workingDirectory
-	prDev3, pwDev3, err := os.Pipe()
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize pipe for >&3 output: %s", err)
-	}
-	cmd.ExtraFiles = []*os.File{pwDev3}
 
 	log.Printf("[DEBUG] shell script command old state: \"%v\"", state)
 
@@ -107,14 +87,14 @@ func runCommand(command string, state *State, environment []string, workingDirec
 	for _, line := range commandLines {
 		log.Printf("   %s", line)
 	}
-	// Write everything we read from the pipe to the output buffer too
-	output, _ := circbuf.NewBuffer(maxBufSize)
-	teeStdout := io.TeeReader(prStdout, output)
-	teeStderr := io.TeeReader(prStderr, output)
-	// copy the teed output to the UI output
-	copyDoneCh := make(chan struct{})
-	go copyOutput(io.MultiReader(teeStdout, teeStderr), copyDoneCh)
 
+	//send sdout and stderr to reader
+	logCh := make(chan string)
+	stdoutDoneCh := make(chan string)
+	stderrDoneCh := make(chan string)
+	go readOutput(prStderr, logCh, stderrDoneCh)
+	go readOutput(prStdout, logCh, stdoutDoneCh)
+	go logOutput(logCh)
 	// Start the command
 	log.Printf("-------------------------")
 	log.Printf("[DEBUG] Starting execution...")
@@ -128,38 +108,16 @@ func runCommand(command string, state *State, environment []string, workingDirec
 	// ends properly.
 	pwStdout.Close()
 	pwStderr.Close()
-	pwDev3.Close()
+	stdOutput := <-stdoutDoneCh
+	<-stderrDoneCh
+	close(logCh)
 
-	// Cancelling the command may block the pipe reader if the file descriptor
-	// was passed to a child process which hasn't closed it. In this case the
-	// copyOutput goroutine will just hang out until exit.
-	select {
-	case <-copyDoneCh:
-	}
 	log.Printf("-------------------------")
-	log.Printf("[DEBUG] Command execution completed. Reading from output pipe: >&3")
+	log.Printf("[DEBUG] Command execution completed:")
 	log.Printf("-------------------------")
-
-	//read back diff output from pipe
-	buffer := new(bytes.Buffer)
-	for {
-		tmpdata := make([]byte, maxBufSize)
-		bytecount, _ := prDev3.Read(tmpdata)
-		if bytecount == 0 {
-			break
-		}
-		buffer.Write(tmpdata)
-	}
-
-	log.Printf("[DEBUG] shell script command output:\n%s", buffer.String())
-
-	if err != nil {
-		return nil, fmt.Errorf("Error running command: '%v'", err)
-	}
-
-	o, err := parseJSON(buffer.Bytes())
-	if err != nil {
-		log.Printf("[DEBUG] Unable to unmarshall data to map[string]string: '%v'", err)
+	o := getOutputMap(stdOutput)
+	//if output is nil then no state was returned from output
+	if o == nil {
 		return nil, nil
 	}
 	newState := NewState(environment, o)
@@ -167,10 +125,72 @@ func runCommand(command string, state *State, environment []string, workingDirec
 	return newState, nil
 }
 
-func copyOutput(r io.Reader, doneCh chan<- struct{}) {
+func logOutput(logCh chan string) {
+	for line := range logCh {
+		log.Printf("  %s", line)
+	}
+}
+
+func readOutput(r io.Reader, logCh chan<- string, doneCh chan<- string) {
 	defer close(doneCh)
 	lr := linereader.New(r)
+	output := ""
 	for line := range lr.Ch {
-		log.Printf("  %s\n", line)
+		logCh <- line
+		output += line
 	}
+	doneCh <- output
+}
+
+func parseJSON(s string) (map[string]string, error) {
+	tb := bytes.Trim([]byte(s), "\x00")
+	ts := string(tb)
+	var f map[string]interface{}
+	err := json.Unmarshal([]byte(ts), &f)
+	if err != nil {
+		log.Printf("[DEBUG] Unable to unmarshall data to map[string]string: '%v'", err)
+		return nil, err
+	}
+	output := make(map[string]string)
+	for k, v := range f {
+		outputString, ok := v.(string)
+		if !ok {
+			outputString = ""
+		}
+		output[k] = outputString
+	}
+	return output, err
+}
+
+func getOutputMap(s string) map[string]string {
+	//expect that the end of the output will have a JSON string that can be converted to a map[string]string
+	re := regexp.MustCompile(`(?mU){.*}`)
+	j := re.FindAllString(s, -1)
+	if len(j) < 1 {
+		log.Printf("[DEBUG] no JSON strings found in stdout")
+		return nil
+	}
+	log.Printf("[DEBUG] JSON strings found: \n%v", j)
+	m, err := parseJSON(j[len(j)-1])
+	if err != nil {
+		//invalid JSON
+		return nil
+	} else {
+		log.Printf("[DEBUG] Valid map[string]string:\n %v", m)
+	}
+	return m
+}
+
+func readFile(r io.Reader) string {
+	const maxBufSize = 8 * 1024
+	buffer := new(bytes.Buffer)
+	for {
+		tmpdata := make([]byte, maxBufSize)
+		bytecount, _ := r.Read(tmpdata)
+		if bytecount == 0 {
+			break
+		}
+		buffer.Write(tmpdata)
+	}
+	return buffer.String()
 }

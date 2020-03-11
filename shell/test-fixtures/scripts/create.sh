@@ -12,4 +12,4 @@ TESTDATA=$(head -c $testdatasize < /dev/zero | tr '\0' '\141')
   {"data":"${TESTDATA}", "out1": "${out1}"}
 END
 
-cat ${filename} >&3
+cat ${filename}
