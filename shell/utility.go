@@ -166,9 +166,14 @@ func getOutputMap(s string) map[string]string {
 	//expect that the end of the output will have a JSON string that can be converted to a map[string]string
 	re := regexp.MustCompile(`(?mU){.*}`)
 	j := re.FindAllString(s, -1)
-	log.Printf("[DEBUG] JSON string found: \n%s", j)
+	if len(j) < 1 {
+		log.Printf("[DEBUG] no JSON strings found in stdout")
+		return nil
+	}
+	log.Printf("[DEBUG] JSON strings found: \n%v", j)
 	m, err := parseJSON(j[len(j)-1])
 	if err != nil {
+		//invalid JSON
 		return nil
 	} else {
 		log.Printf("[DEBUG] Valid map[string]string:\n %v", m)
