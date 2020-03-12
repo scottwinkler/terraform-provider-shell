@@ -6,6 +6,9 @@ This plugin is for wrapping shell scripts to make them fully fledged terraform r
 ## Prerequisites
 Get some coffee! ☕
 
+## Installing
+To use this plugin, go to releases and download the binary for your specific OS and architecture. Then you will need to trim the name of the file to get rid of the suffix (e.g. terraform-provider-shell_v1.0.0.darwin_amd64 -> terraform-provider-shell_v1.0.0). This suffix is only used to help you identify which binary to download and will cause errors if left on. Finally, you can install this plugin by either putting it in your `~/.terraform/plugins` folder or in your terraform workspace and performing a "terraform init".
+
 ## Examples
 There is nothing to configure for the provider, declare it like so:
 
