@@ -149,21 +149,18 @@ func parseJSON(s string) (map[string]string, error) {
 	result := gjson.Parse(s)
 	result.ForEach(func(key, value gjson.Result) bool {
 		output[key.String()] = value.String()
-		return true // keep iterating
+		return true
 	})
 	return output, nil
 }
 
 func getOutputMap(s string) map[string]string {
-	//Find all matches of "{(.*)" in output
-	fmt.Printf("[DEBUG] s: %v\n", s)
+	//Find all matches of "{(.*)/g" in output
 	var matches []string
 	substring := s
 	idx := strings.Index(substring, "{")
 	for idx != -1 {
 		substring = substring[idx:]
-		fmt.Printf("[DEBUG] idx: %d\n", idx)
-		fmt.Printf("[DEBUG] substring: %s\n", substring)
 		matches = append(matches, substring)
 		if len(substring) > 0 {
 			substring = substring[1:]
@@ -171,12 +168,11 @@ func getOutputMap(s string) map[string]string {
 		idx = strings.Index(substring, "{")
 	}
 
-	//Find last match
+	//Use last match that is a valid JSON
 	var m map[string]string
 	var err error
 	for i := range matches {
 		match := matches[len(matches)-1-i]
-		log.Printf("[DEBUG] match: %s", match)
 		m, err = parseJSON(match)
 		if err == nil {
 			//match found

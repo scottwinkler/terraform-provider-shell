@@ -7,12 +7,12 @@ This plugin is for wrapping shell scripts to make them fully fledged terraform r
 Get some coffee! ☕
 
 ## Examples
-There is nothing to configure for the provider, declare it like so:
+There is nothing to configure for the provider, you can declare it like so (or even omit it entirely):
 
 ```
 provider "shell" {}
 ```
-To use a data resource you need to implement the read command. Any output to stdout or stderr will show up in the logs, but to save the state, you must output a JSON payload to stdout. The last JSON object printed to stdout will be taken to be the state. The JSON shouln't be deeply nested and should be able to be marshalled into a `map[string]string`. The reason for this is that your JSON payload variables can be accessed from the output map of this resource and used like a normal terraform output, so the value must be a string.
+To use a data resource you need to implement the read command. Any output to stdout or stderr will show up in the logs, but to save the state, you must output a JSON payload to stdout. The last JSON object printed to stdout will be taken to be the state. The JSON can be a complex nested JSON, but will be flattened into a `map[string]string`. The reason for this is that your JSON payload variables can be accessed from the output map of this resource and used like a normal terraform output, so the value must be a string.
 
 ```
 data "shell_script" "user" {
@@ -102,7 +102,7 @@ A complete example that uses all four lifecycle commands is shown below:
 
 In the example I am setting the `working_directory` argument (which switches the current working directory), some environment variables that will be utilized by all my scripts, and configuring my lifecycle commands for `CREATE`, `READ`, `UPDATE` and `DELETE`. `CREATE`and `UPDATE` will modify the resource but not update the state, while `READ` updates the state but does not modify the resource.
 
-An example shell script resouce could have a file being written to in the `CREATE`. `READ` would simply cat that previously created file and output it to `>&3`. `UPDATE` could measure the changes from the old state (available through stdin) and the new state (available through environment variables) to decide how best to handle an update. Again since this is a custom resource it is up to you to decide how best to handle updates, in many cases it may make sense not to implement `UPDATE` at all and rely on just `CREATE`/`READ`/`DELETE`.
+An example shell script resouce could have a file being written to in the `CREATE`. `READ` would simply cat that previously created file and output it to stdout. `UPDATE` could measure the changes from the old state (available through stdin) and the new state (available through environment variables) to decide how best to handle an update. Again since this is a custom resource it is up to you to decide how best to handle updates, in many cases it may make sense not to implement `UPDATE` at all and rely on just `CREATE`/`READ`/`DELETE`.
 
 `DELETE` needs to clean up any resources that were created but does not need to return anything. State data is available in the `output` variable, which is mapped from the JSON of your read command.
 
