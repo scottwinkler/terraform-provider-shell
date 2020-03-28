@@ -11,9 +11,8 @@ import (
 	"runtime"
 	"strings"
 
-	"regexp"
-
 	"github.com/mitchellh/go-linereader"
+	"github.com/tidwall/gjson"
 )
 
 // State is a wrapper around both the input and output attributes that are relavent for updates
@@ -134,50 +133,63 @@ func logOutput(logCh chan string) {
 func readOutput(r io.Reader, logCh chan<- string, doneCh chan<- string) {
 	defer close(doneCh)
 	lr := linereader.New(r)
-	output := ""
+	var output strings.Builder
 	for line := range lr.Ch {
 		logCh <- line
-		output += line
+		output.WriteString(line)
 	}
-	doneCh <- output
+	doneCh <- output.String()
 }
 
 func parseJSON(s string) (map[string]string, error) {
-	tb := bytes.Trim([]byte(s), "\x00")
-	ts := string(tb)
-	var f map[string]interface{}
-	err := json.Unmarshal([]byte(ts), &f)
-	if err != nil {
-		log.Printf("[DEBUG] Unable to unmarshall data to map[string]string: '%v'", err)
-		return nil, err
+	if !gjson.Valid(s) {
+		return nil, fmt.Errorf("Invalid JSON: %s", s)
 	}
 	output := make(map[string]string)
-	for k, v := range f {
-		outputString, ok := v.(string)
-		if !ok {
-			outputString = ""
-		}
-		output[k] = outputString
-	}
-	return output, err
+	result := gjson.Parse(s)
+	result.ForEach(func(key, value gjson.Result) bool {
+		output[key.String()] = value.String()
+		return true // keep iterating
+	})
+	return output, nil
 }
 
 func getOutputMap(s string) map[string]string {
-	//expect that the end of the output will have a JSON string that can be converted to a map[string]string
-	re := regexp.MustCompile(`(?mU){.*}`)
-	j := re.FindAllString(s, -1)
-	if len(j) < 1 {
-		log.Printf("[DEBUG] no JSON strings found in stdout")
+	//Find all matches of "{(.*)" in output
+	fmt.Printf("[DEBUG] s: %v\n", s)
+	var matches []string
+	substring := s
+	idx := strings.Index(substring, "{")
+	for idx != -1 {
+		substring = substring[idx:]
+		fmt.Printf("[DEBUG] idx: %d\n", idx)
+		fmt.Printf("[DEBUG] substring: %s\n", substring)
+		matches = append(matches, substring)
+		if len(substring) > 0 {
+			substring = substring[1:]
+		}
+		idx = strings.Index(substring, "{")
+	}
+
+	//Find last match
+	var m map[string]string
+	var err error
+	for i := range matches {
+		match := matches[len(matches)-1-i]
+		log.Printf("[DEBUG] match: %s", match)
+		m, err = parseJSON(match)
+		if err == nil {
+			//match found
+			break
+		}
+	}
+
+	if m == nil {
+		log.Printf("[DEBUG] no valid JSON strings found at end of output: \n%s", s)
 		return nil
 	}
-	log.Printf("[DEBUG] JSON strings found: \n%v", j)
-	m, err := parseJSON(j[len(j)-1])
-	if err != nil {
-		//invalid JSON
-		return nil
-	} else {
-		log.Printf("[DEBUG] Valid map[string]string:\n %v", m)
-	}
+
+	log.Printf("[DEBUG] Valid map[string]string:\n %v", m)
 	return m
 }
 
