@@ -32,6 +32,7 @@ require (
 	github.com/ryanuber/columnize v2.1.0+incompatible // indirect
 	github.com/terraform-providers/terraform-provider-aws v1.60.0 // indirect
 	github.com/terraform-providers/terraform-provider-openstack v1.26.0 // indirect
+	github.com/tidwall/gjson v1.6.0
 	github.com/xanzy/ssh-agent v0.2.1 // indirect
 	github.com/xlab/treeprint v1.0.0 // indirect
 )
