@@ -3,6 +3,7 @@ package shell
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/acctest"
@@ -25,6 +26,20 @@ func TestAccShellShellScript_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "output.out1", rString),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
+			},
+		},
+	})
+}
+
+func TestAccShellShellScript_basic_error(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckShellScriptDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config:             testAccShellScriptConfig_basic_error(),
+				ExpectNonEmptyPlan: true,
+				ExpectError:        regexp.MustCompile("Something went wrong!"),
 			},
 		},
 	})
@@ -121,6 +136,24 @@ EOF
 		}
 	  }
 `, outValue)
+}
+
+func testAccShellScriptConfig_basic_error() string {
+	return fmt.Sprintf(`
+	resource "shell_script" "basic" {
+		lifecycle_commands {
+		  create = <<EOF
+		    echo "Something went wrong!"
+			exit 1
+EOF
+		  delete = "exit 1"
+		}
+	  
+		environment = {
+		  filename= "create_delete.json"
+		}
+	  }
+`)
 }
 
 func testAccShellScriptConfig_create_read_delete(outValue string) string {
