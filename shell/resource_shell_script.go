@@ -55,6 +55,12 @@ func resourceShellScript() *schema.Resource {
 				Optional: true,
 				Elem:     schema.TypeString,
 			},
+			"environment_sensitive": {
+				Type:      schema.TypeMap,
+				Optional:  true,
+				Elem:      schema.TypeString,
+				Sensitive: true,
+			},
 			"working_directory": {
 				Type:     schema.TypeString,
 				Optional: true,
@@ -100,7 +106,9 @@ func create(d *schema.ResourceData, meta interface{}, stack []string) error {
 	c := l[0].(map[string]interface{})
 	command := c["create"].(string)
 	vars := d.Get("environment").(map[string]interface{})
-	environment := readEnvironmentVariables(vars)
+	varsSensitive := d.Get("environment_sensitive").(map[string]interface{})
+	varsAll := mergeEnvironmentMaps(vars, varsSensitive)
+	environment := readEnvironmentVariables(varsAll)
 	workingDirectory := d.Get("working_directory").(string)
 	d.MarkNewResource()
 
@@ -140,7 +148,9 @@ func read(d *schema.ResourceData, meta interface{}, stack []string) error {
 	}
 
 	vars := d.Get("environment").(map[string]interface{})
-	environment := readEnvironmentVariables(vars)
+	varsSensitive := d.Get("environment_sensitive").(map[string]interface{})
+	varsAll := mergeEnvironmentMaps(vars, varsSensitive)
+	environment := readEnvironmentVariables(varsAll)
 	workingDirectory := d.Get("working_directory").(string)
 	o := d.Get("output").(map[string]interface{})
 	output := make(map[string]string)
@@ -192,14 +202,20 @@ func update(d *schema.ResourceData, meta interface{}, stack []string) error {
 	}
 
 	//need to get the old environment if it exists
-	oldVars := make(map[string]interface{})
+	oldVarsAll := make(map[string]interface{})
 	if d.HasChange("environment") {
-		e, _ := d.GetChange("environment")
-		oldVars = e.(map[string]interface{})
+		e1, _ := d.GetChange("environment")
+		oldVars := e1.(map[string]interface{})
+		e2, _ := d.GetChange("environment_sensitive")
+		oldVarsSensitive := e2.(map[string]interface{})
+		oldVarsAll = mergeEnvironmentMaps(oldVars, oldVarsSensitive)
 	}
-	oldEnvironment := readEnvironmentVariables(oldVars)
+	oldEnvironment := readEnvironmentVariables(oldVarsAll)
+
 	vars := d.Get("environment").(map[string]interface{})
-	environment := readEnvironmentVariables(vars)
+	varsSensitive := d.Get("environment_sensitive").(map[string]interface{})
+	varsAll := mergeEnvironmentMaps(vars, varsSensitive)
+	environment := readEnvironmentVariables(varsAll)
 
 	workingDirectory := d.Get("working_directory").(string)
 	o := d.Get("output").(map[string]interface{})
@@ -233,7 +249,9 @@ func delete(d *schema.ResourceData, meta interface{}, stack []string) error {
 	c := l[0].(map[string]interface{})
 	command := c["delete"].(string)
 	vars := d.Get("environment").(map[string]interface{})
-	environment := readEnvironmentVariables(vars)
+	varsSensitive := d.Get("environment_sensitive").(map[string]interface{})
+	varsAll := mergeEnvironmentMaps(vars, varsSensitive)
+	environment := readEnvironmentVariables(varsAll)
 	workingDirectory := d.Get("working_directory").(string)
 	o := d.Get("output").(map[string]interface{})
 	output := make(map[string]string)
