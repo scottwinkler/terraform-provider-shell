@@ -31,7 +31,7 @@ func testAccDataShellScriptConfig(outValue string) string {
 	data "shell_script" "test" {
 	  lifecycle_commands {
 		read = <<EOF
-		  echo '{"out1": "%s"}' >&3
+		  echo '{"out1": "%s"}'
 EOF
 	  }
 	}
