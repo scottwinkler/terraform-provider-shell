@@ -75,7 +75,6 @@ func resourceShellScript() *schema.Resource {
 			"interpreter": {
 				Type:     schema.TypeMap,
 				Optional: true,
-				Computed: true,
 				Elem:     schema.TypeString,
 			},
 		},
