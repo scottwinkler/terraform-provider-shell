@@ -36,7 +36,7 @@ resource "shell_script" "test2" {
 resource "shell_script" "test3" {
   lifecycle_commands {
     create = <<EOF
-      out='{"commit_id": "b8f2b8b", "environment": "$yolo", "tags_at_commit": "sometags", "project": "someproject", "current_date": "09/10/2014", "version": "someversion"}'
+      out='{"commit_id": "b8f2b8b"}'
       touch test3.json
       echo $out >> test3.json
       cat test3.json >&3
@@ -45,13 +45,9 @@ resource "shell_script" "test3" {
     delete = "rm -rf test3.json"
   }
 
-  environment = {
-    yolo = "yolo2"
-  }
-
   interpreter = {
-    flag = "-c"
     shell = "/bin/bash"
+    flag = "-c"
   }
 }
 

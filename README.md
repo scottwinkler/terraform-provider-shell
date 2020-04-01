@@ -52,6 +52,27 @@ In the example above I am changing my working_directory, setting some environmen
 
 Stdout and stderr are available in the debug log files. 
 
+### Interpreter
+
+By default, the scripts will be executed by `cmd /C` on windows and `/bin/sh -c` on linux. You can overwrite this setting using `interpreter`:
+
+	resource "shell_script" "test" {
+		lifecycle_commands {
+			create = file("create.sh")
+			read   = file("read.sh")
+			update = file("update.sh")
+			delete = file("delete.sh")
+		}
+
+		interpreter = {
+			shell = "/bin/bash"
+			flag = "-c"
+		}
+	}
+
+* `shell` (optional) contains the path to the shell binary. If empty or non present, it will be set to `cmd` on windows and `/bin/sh` otherwise.
+* `flag` (optional) contains the options passed to the shell (this example will execute `/bin/bash -c create.sh`). Can be empty. 
+
 ## Python Support
 There is now an example for how to use the shell provider to invoke python files. Please check in the test/python-example folder for more information on this. Essentially it is an adapter around the shell resource that invokes methods on an interface that you implement.
 
