@@ -5,7 +5,7 @@ provider "shell" {}
 data "shell_script" "test" {
   lifecycle_commands {
     read = <<EOF
-      echo '{"commit_id": "b8f2b8b"}' >&3
+      echo '{"commit_id": "b8f2b8b"}'
     EOF
   }
 }
@@ -21,7 +21,7 @@ resource "shell_script" "test2" {
       out='{"commit_id": "b8f2b8b", "environment": "$yolo", "tags_at_commit": "sometags", "project": "someproject", "current_date": "09/10/2014", "version": "someversion"}'
       touch test2.json
       echo $out >> test2.json
-      cat test2.json >&3
+      cat test2.json
     EOF
     delete = "rm -rf test2.json"
   }
@@ -32,22 +32,21 @@ resource "shell_script" "test2" {
 }
 
 //test resource with no update
-//test with interpreter example
 resource "shell_script" "test3" {
   lifecycle_commands {
     create = <<EOF
-      out='{"commit_id": "b8f2b8b"}'
+      out='{"commit_id": "b8f2b8b", "environment": "$yolo", "tags_at_commit": "sometags", "project": "someproject", "current_date": "09/10/2014", "version": "someversion"}'
       touch test3.json
       echo $out >> test3.json
-      cat test3.json >&3
+      cat test3.json
     EOF
-    read = "cat test3.json >&3"
+    read   = "cat test3.json"
     delete = "rm -rf test3.json"
   }
 
-  interpreter = {
-    shell = "/bin/bash"
-    flag = "-c"
+  environment = {
+    yolo = "yolo2"
+
   }
 }
 
@@ -58,14 +57,14 @@ resource "shell_script" "test4" {
       out='{"commit_id": "b8f2b8b", "environment": "$yolo", "tags_at_commit": "sometags", "project": "someproject", "current_date": "09/10/2014", "version": "someversion"}'
       touch test4.json
       echo $out >> test4.json
-      cat test4.json >&3
+      cat test4.json
     EOF
     update = <<EOF
       rm -rf test4.json
       out='{"commit_id": "b8f2b8b", "environment": "$yolo", "tags_at_commit": "sometags", "project": "someproject", "current_date": "09/10/2014", "version": "someversion"}'
       touch test4.json
       echo $out >> test4.json
-      cat test4.json >&3
+      cat test4.json
     EOF
     delete = "rm -rf test4.json"
   }
@@ -79,7 +78,7 @@ resource "shell_script" "test4" {
 resource "shell_script" "test5" {
   lifecycle_commands {
     create = file("${path.module}/scripts/create.sh")
-    read = file("${path.module}/scripts/read.sh")
+    read   = file("${path.module}/scripts/read.sh")
     update = file("${path.module}/scripts/update.sh")
     delete = file("${path.module}/scripts/delete.sh")
   }
@@ -100,7 +99,7 @@ output "commit_id2" {
 resource "shell_script" "test6" {
   lifecycle_commands {
     create = file("${path.module}/scripts/create.sh")
-    read = file("${path.module}/scripts/read.sh")
+    read   = file("${path.module}/scripts/read.sh")
     delete = file("${path.module}/scripts/delete.sh")
   }
 
@@ -113,5 +112,24 @@ resource "shell_script" "test6" {
 
   triggers = {
     abc = 123
+  }
+}
+
+//test interpreter
+resource "shell_script" "test7" {
+  lifecycle_commands {
+    create = <<EOF
+      out='{"commit_id": "b8f2b8b"}'
+      touch test7.json
+      echo $out >> test7.json
+      cat test7.json
+    EOF
+    read   = "cat test7.json"
+    delete = "rm -rf test7.json"
+  }
+
+  interpreter = {
+    shell = "/bin/bash" # will probably crash on windows!
+    flag  = "-c"
   }
 }
