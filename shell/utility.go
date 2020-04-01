@@ -59,23 +59,21 @@ func runCommand(command string, state *State, environment []string, workingDirec
 	const maxBufSize = 8 * 1024
 	// Execute the command using a shell
 	var shell, flag string
-	if _, ok := interpreter["shell"]; ok {
-		if value, ok := interpreter["shell"]; ok {
-			shell = value.(string)
-		} else {
-			shell = ""
-		}
-		if value, ok := interpreter["flag"]; ok {
-			flag = value.(string)
-		} else {
-			flag = ""
-		}
+	if value, ok := interpreter["shell"]; ok && value != "" {
+		shell = value.(string)
 	} else {
 		if runtime.GOOS == "windows" {
 			shell = "cmd"
-			flag = "/C"
 		} else {
 			shell = "/bin/sh"
+		}
+	}
+	if value, ok := interpreter["flag"]; ok {
+		flag = value.(string)
+	} else {
+		if runtime.GOOS == "windows" {
+			flag = "/C"
+		} else {
 			flag = "-c"
 		}
 	}
