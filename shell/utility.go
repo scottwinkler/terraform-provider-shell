@@ -99,17 +99,25 @@ func runCommand(command string, state *State, environment []string, workingDirec
 	log.Printf("[DEBUG] Starting execution...")
 	log.Printf("-------------------------")
 	err = cmd.Start()
-	if err == nil {
-		err = cmd.Wait()
+	if err != nil {
+		return nil, err
 	}
+
+	err = cmd.Wait()
 
 	// Close the write-end of the pipe so that the goroutine mirroring output
 	// ends properly.
 	pwStdout.Close()
 	pwStderr.Close()
+
 	stdOutput := <-stdoutDoneCh
-	<-stderrDoneCh
+	stdError := <-stderrDoneCh
 	close(logCh)
+
+	// If the script exited with a non-zero code then send the error up to Terraform
+	if err != nil {
+		return nil, fmt.Errorf("Error occured in Command: '%s' Error: '%s' \n StdOut: \n %s \n StdErr: \n %s", command, err.Error(), stdOutput, stdError)
+	}
 
 	log.Printf("-------------------------")
 	log.Printf("[DEBUG] Command execution completed:")
