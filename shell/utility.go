@@ -28,7 +28,12 @@ func NewState(environment []string, output map[string]string) *State {
 
 // in case of duplicates, ev2 will overwrite ev1 entries
 func mergeEnvironmentMaps(ev1 map[string]interface{}, ev2 map[string]interface{}) map[string]interface{} {
-    res := ev1
+	res := make(map[string]interface{})
+	if ev1 != nil {
+		for k, v := range ev1 {
+			res[k] = v
+		}
+	}
     if ev2 != nil {
 		for k, v := range ev2 {
 			res[k] = v

@@ -115,6 +115,32 @@ Stdout and stderr are also available in the debug log files. You can get this by
 export TF_LOG=debug
 ```
 
+## Sensitive environment variables
+Environment variables will be displayed in the plan by terraform. If you don't want them to show up in your terminal, use `environment_sensitive` instead of `environment`. You can also use both:
+
+	resource "shell_script" "test" {
+		lifecycle_commands {
+			create = file("${path.module}/scripts/create.sh")
+			read   = file("${path.module}/scripts/read.sh")
+			update = file("${path.module}/scripts/update.sh")
+			delete = file("${path.module}/scripts/delete.sh")
+		}
+
+		working_directory = path.module
+
+		environment = {
+			yolo = "yolo"
+			ball = "room"
+		}
+
+		environment_sensitive = {
+			yolo = "replaced"
+			animal = "dragon"
+		}
+	}
+
+In this case, the definitive variables will be `ball=room`, `animal=dragon` and `yolo=replaced`, because sensitive variables will replace normal ones.
+
 ## Python and Golang Support
 There is now an example for how to use the shell provider to invoke python and golang files. Please check in the `examples/python-adapter` and `examples/golang-adapter` folder for more information on this. Essentially it is an adapter around the `shell_resource` that invokes methods on an interface that you implement.
 

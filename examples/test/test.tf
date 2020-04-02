@@ -114,3 +114,27 @@ resource "shell_script" "test6" {
     abc = 123
   }
 }
+
+//sensitive environment variables
+resource "shell_script" "test8" {
+  lifecycle_commands {
+    create = file("${path.module}/scripts/create.sh")
+    read   = file("${path.module}/scripts/read.sh")
+    update = file("${path.module}/scripts/update.sh")
+    delete = file("${path.module}/scripts/delete.sh")
+  }
+
+  working_directory = "${path.module}"
+
+  environment = {
+    yolo = "yolo"
+  }
+
+  environment_sensitive = {
+    yolo = "yolo_replaced"
+  }
+}
+
+output "test8_environment" {
+  value = shell_script.test8.output["environment"] # should be "yolo_replaced"
+}

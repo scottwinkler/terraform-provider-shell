@@ -90,6 +90,26 @@ func TestAccShellShellScript_complete(t *testing.T) {
 	})
 }
 
+func TestAccShellShellScript_sensitive_variables(t *testing.T) {
+	resourceName := "shell_script.sensitive_variables"
+	rString := acctest.RandString(8)
+	resource.Test(t, resource.TestCase{
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckShellScriptDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccShellScriptConfig_sensitive_variables(rString),
+
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "output.%", "2"),
+					resource.TestCheckResourceAttr(resourceName, "output.out1", rString),
+					resource.TestCheckResourceAttrSet(resourceName, "id"),
+				),
+			},
+		},
+	})
+}
+
 func testAccCheckShellScriptDestroy(s *terraform.State) error {
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "shell_script" {
@@ -184,6 +204,33 @@ func testAccShellScriptConfig_complete(outValue string) string {
 		environment = {
 			filename= "create_complete.json"
 			testdatasize = "100240"						
+			out1 = "%s"
+		}
+
+		triggers = {
+			key = "value"
+		}
+	  }
+`, outValue)
+}
+
+func testAccShellScriptConfig_sensitive_variables(outValue string) string {
+	return fmt.Sprintf(`
+	resource "shell_script" "sensitive_variables" {
+		lifecycle_commands {
+			create = file("test-fixtures/scripts/create.sh")
+			read   = file("test-fixtures/scripts/read.sh")
+			update = file("test-fixtures//scripts/update.sh")
+			delete = file("test-fixtures/scripts/delete.sh")
+		}
+
+		environment = {
+			filename = "does_not_exist.json"
+			testdatasize = "100240"						
+		}
+
+		environment_sensitive = {
+			filename= "create_complete.json"					
 			out1 = "%s"
 		}
 
