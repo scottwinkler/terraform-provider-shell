@@ -1,5 +1,5 @@
 # terraform-provider-shell
-[![GitHub Actions](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Factions-badge.atrox.dev%2Fatrox%2Fsync-dotenv%2Fbadge)](https://actions-badge.atrox.dev/atrox/sync-dotenv/goto)
+![Go](https://github.com/scottwinkler/terraform-provider-shell/workflows/Go/badge.svg)
 ## Introduction
 This plugin is for wrapping shell scripts to make them fully fledged terraform resources. Please note that this is a backdoor into the terraform lifecycle management, so it is up to you to implement your resources properly. It is recommended that you at least have some familiarity with the internals of Terraform before attempting to use this provider. If you can't write your own provider from scratch then you probably shouldn't be using this.
 
