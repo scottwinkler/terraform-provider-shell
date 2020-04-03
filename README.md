@@ -3,8 +3,27 @@
 ## Introduction
 This plugin is for wrapping shell scripts to make them fully fledged terraform resources. Please note that this is a backdoor into the terraform lifecycle management, so it is up to you to implement your resources properly. It is recommended that you at least have some familiarity with the internals of Terraform before attempting to use this provider. If you can't write your own provider from scratch then you probably shouldn't be using this.
 
-## Prerequisites
-Get some coffee! ☕
+
+## Requirements
+
+-	[Terraform](https://www.terraform.io/downloads.html) 0.12.x
+-	[Go](https://golang.org/doc/install) 1.13 (to build the provider plugin)
+
+## Building The Provider
+
+Clone repository to: `$GOPATH/src/github.com/scottwinkler/terraform-provider-shell`
+
+```sh
+$ mkdir -p $GOPATH/src/github.com/scottwinkler; cd $GOPATH/src/github.com/scottwinkler
+$ git clone git@github.com:scottwinkler/terraform-provider-shell
+```
+
+Enter the provider directory and build the provider
+
+```sh
+$ cd $GOPATH/src/github.com/scottwinkler/terraform-provider-shell
+$ make build
+```
 
 ## Installing
 To use this plugin, go to releases and download the binary for your specific OS and architecture. Then you will need to trim the name of the file to get rid of the suffix (e.g. terraform-provider-shell_v1.0.0.darwin_amd64 -> terraform-provider-shell_v1.0.0). This suffix is only used to help you identify which binary to download and will cause errors if left on. Finally, you can install this plugin by either putting it in your `~/.terraform/plugins` folder or in your terraform workspace and performing a "terraform init".
@@ -118,10 +137,10 @@ export TF_LOG=debug
 ## Python and Golang Support
 There is now an example for how to use the shell provider to invoke python and golang files. Please check in the `examples/python-adapter` and `examples/golang-adapter` folder for more information on this. Essentially it is an adapter around the `shell_resource` that invokes methods on an interface that you implement.
 
-## Develop
+## Testing
 If you wish to build this yourself, follow the instructions:
 
+```sh
+$ make test
 ```
-	cd terraform-provider-shell
-	make all
-```
+
