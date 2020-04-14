@@ -242,8 +242,10 @@ func delete(d *schema.ResourceData, meta interface{}, stack []string) error {
 	}
 
 	state := NewState(environment, output)
-	runCommand(command, state, environment, workingDirectory)
-
+	_, err := runCommand(command, state, environment, workingDirectory)
+	if err != nil {
+		return err
+	}
 	d.SetId("")
 	return nil
 }
