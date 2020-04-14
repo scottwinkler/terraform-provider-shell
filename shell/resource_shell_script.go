@@ -54,6 +54,13 @@ func resourceShellScript() *schema.Resource {
 				Type:     schema.TypeMap,
 				Optional: true,
 				Elem:     schema.TypeString,
+				ForceNew: true,
+			},
+			"sensitive_environment": {
+				Type:      schema.TypeMap,
+				Optional:  true,
+				Elem:      schema.TypeString,
+				Sensitive: true,
 			},
 			"working_directory": {
 				Type:     schema.TypeString,
@@ -64,7 +71,6 @@ func resourceShellScript() *schema.Resource {
 			"output": {
 				Type:     schema.TypeMap,
 				Computed: true,
-				ForceNew: true,
 				Elem:     schema.TypeString,
 			},
 			"dirty": {
@@ -99,14 +105,13 @@ func create(d *schema.ResourceData, meta interface{}, stack []string) error {
 	l := d.Get("lifecycle_commands").([]interface{})
 	c := l[0].(map[string]interface{})
 	command := c["create"].(string)
-	vars := d.Get("environment").(map[string]interface{})
-	environment := readEnvironmentVariables(vars)
+	environment := packEnvironmentVariables(d.Get("environment"))
+	sensitiveEnvironment := packEnvironmentVariables(d.Get("sensitive_environment"))
 	workingDirectory := d.Get("working_directory").(string)
 	d.MarkNewResource()
-
 	output := make(map[string]string)
-	state := NewState(environment, output)
-	newState, err := runCommand(command, state, environment, workingDirectory)
+	state := NewState(environment, sensitiveEnvironment, output)
+	newState, err := runCommand(command, state, workingDirectory)
 	if err != nil {
 		return err
 	}
@@ -139,17 +144,13 @@ func read(d *schema.ResourceData, meta interface{}, stack []string) error {
 		return nil
 	}
 
-	vars := d.Get("environment").(map[string]interface{})
-	environment := readEnvironmentVariables(vars)
+	environment := packEnvironmentVariables(d.Get("environment"))
+	sensitiveEnvironment := packEnvironmentVariables(d.Get("sensitive_environment"))
 	workingDirectory := d.Get("working_directory").(string)
-	o := d.Get("output").(map[string]interface{})
-	output := make(map[string]string)
-	for k, v := range o {
-		output[k] = v.(string)
-	}
+	output := expandOutput(d.Get("output"))
 
-	state := NewState(environment, output)
-	newState, err := runCommand(command, state, environment, workingDirectory)
+	state := NewState(environment, sensitiveEnvironment, output)
+	newState, err := runCommand(command, state, workingDirectory)
 	if err != nil {
 		return err
 	}
@@ -191,25 +192,13 @@ func update(d *schema.ResourceData, meta interface{}, stack []string) error {
 		return create(d, meta, stack)
 	}
 
-	//need to get the old environment if it exists
-	oldVars := make(map[string]interface{})
-	if d.HasChange("environment") {
-		e, _ := d.GetChange("environment")
-		oldVars = e.(map[string]interface{})
-	}
-	oldEnvironment := readEnvironmentVariables(oldVars)
-	vars := d.Get("environment").(map[string]interface{})
-	environment := readEnvironmentVariables(vars)
-
+	environment := packEnvironmentVariables(d.Get("environment"))
+	sensitiveEnvironment := packEnvironmentVariables(d.Get("sensitive_environment"))
 	workingDirectory := d.Get("working_directory").(string)
-	o := d.Get("output").(map[string]interface{})
-	output := make(map[string]string)
-	for k, v := range o {
-		output[k] = v.(string)
-	}
+	output := expandOutput(d.Get("output"))
 
-	state := NewState(oldEnvironment, output)
-	newState, err := runCommand(command, state, environment, workingDirectory)
+	state := NewState(environment, sensitiveEnvironment, output)
+	newState, err := runCommand(command, state, workingDirectory)
 	if err != nil {
 		return err
 	}
@@ -232,20 +221,27 @@ func delete(d *schema.ResourceData, meta interface{}, stack []string) error {
 	l := d.Get("lifecycle_commands").([]interface{})
 	c := l[0].(map[string]interface{})
 	command := c["delete"].(string)
-	vars := d.Get("environment").(map[string]interface{})
-	environment := readEnvironmentVariables(vars)
+	environment := packEnvironmentVariables(d.Get("environment"))
+	sensitiveEnvironment := packEnvironmentVariables(d.Get("sensitive_environment"))
 	workingDirectory := d.Get("working_directory").(string)
-	o := d.Get("output").(map[string]interface{})
-	output := make(map[string]string)
-	for k, v := range o {
-		output[k] = v.(string)
-	}
+	output := expandOutput(d.Get("output"))
 
-	state := NewState(environment, output)
-	_, err := runCommand(command, state, environment, workingDirectory)
+	state := NewState(environment, sensitiveEnvironment, output)
+	_, err := runCommand(command, state, workingDirectory)
 	if err != nil {
 		return err
 	}
 	d.SetId("")
 	return nil
+}
+
+func expandOutput(o interface{}) map[string]string {
+	om := o.(map[string]interface{})
+	output := make(map[string]string)
+	if om != nil {
+		for k, v := range om {
+			output[k] = v.(string)
+		}
+	}
+	return output
 }
