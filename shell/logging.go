@@ -8,11 +8,11 @@ import (
 	"github.com/mitchellh/go-linereader"
 )
 
-func printStackTrace(stack []string) {
+func printStackTrace(actions []Action) {
 	log.Printf("-------------------------")
 	log.Printf("[DEBUG] Current stack:")
-	for _, v := range stack {
-		log.Printf("[DEBUG] -- %s", v)
+	for _, action := range actions {
+		log.Printf("[DEBUG] -- %s", action)
 	}
 	log.Printf("-------------------------")
 }

@@ -64,20 +64,29 @@ func dataSourceShellScriptRead(d *schema.ResourceData, meta interface{}) error {
 	environment := packEnvironmentVariables(d.Get("environment"))
 	sensitiveEnvironment := packEnvironmentVariables(d.Get("sensitive_environment"))
 	workingDirectory := d.Get("working_directory").(string)
-	output := make(map[string]string)
 
-	state := NewState(environment, sensitiveEnvironment, output)
-	newState, err := runCommand(command, workingDirectory, ReadAction, state )
+	//we don't care about previous output for data sources
+	previousOutput := make(map[string]string)
+
+	commandConfig := &CommandConfig{
+		Command:              command,
+		Environment:          environment,
+		SensitiveEnvironment: sensitiveEnvironment,
+		WorkingDirectory:     workingDirectory,
+		Action:               ActionRead,
+		PreviousOutput:       previousOutput,
+	}
+	output, err := runCommand(commandConfig)
 	if err != nil {
 		return err
 	}
 
-	if newState == nil {
-		log.Printf("[DEBUG] State from read operation was nil. Marking resource for deletion.")
+	if output == nil {
+		log.Printf("[DEBUG] Output from read operation was nil. Marking resource for deletion.")
 		d.SetId("")
 		return nil
 	}
-	d.Set("output", newState.Output)
+	d.Set("output", output)
 
 	//create random uuid for the id
 	id := xid.New().String()
