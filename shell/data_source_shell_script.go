@@ -33,6 +33,12 @@ func dataSourceShellScript() *schema.Resource {
 				ForceNew: true,
 				Elem:     schema.TypeString,
 			},
+			"sensitive_environment": {
+				Type:      schema.TypeMap,
+				Optional:  true,
+				Elem:      schema.TypeString,
+				Sensitive: true,
+			},
 			"working_directory": {
 				Type:     schema.TypeString,
 				Optional: true,
@@ -55,13 +61,13 @@ func dataSourceShellScriptRead(d *schema.ResourceData, meta interface{}) error {
 	value := c["read"]
 
 	command := value.(string)
-	vars := d.Get("environment").(map[string]interface{})
-	environment := readEnvironmentVariables(vars)
+	environment := packEnvironmentVariables(d.Get("environment"))
+	sensitiveEnvironment := packEnvironmentVariables(d.Get("sensitive_environment"))
 	workingDirectory := d.Get("working_directory").(string)
 	output := make(map[string]string)
 
-	state := NewState(environment, output)
-	newState, err := runCommand(command, state, environment, workingDirectory)
+	state := NewState(environment, sensitiveEnvironment, output)
+	newState, err := runCommand(command, state, workingDirectory)
 	if err != nil {
 		return err
 	}

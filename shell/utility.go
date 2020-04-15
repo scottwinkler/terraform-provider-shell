@@ -17,23 +17,36 @@ import (
 
 // State is a wrapper around both the input and output attributes that are relavent for updates
 type State struct {
-	Environment []string
-	Output      map[string]string
+	Environment          []string
+	SensitiveEnvironment []string
+	Output               map[string]string
 }
 
 // NewState is the constructor for State
-func NewState(environment []string, output map[string]string) *State {
-	return &State{Environment: environment, Output: output}
+func NewState(environment []string, sensitiveEnvironment []string, output map[string]string) *State {
+	return &State{Environment: environment, SensitiveEnvironment: sensitiveEnvironment, Output: output}
 }
 
-func readEnvironmentVariables(ev map[string]interface{}) []string {
-	var variables []string
-	if ev != nil {
-		for k, v := range ev {
-			variables = append(variables, k+"="+v.(string))
+func packEnvironmentVariables(ev interface{}) []string {
+	var envList []string
+	envMap := ev.(map[string]interface{})
+	if envMap != nil {
+		for k, v := range envMap {
+			envList = append(envList, k+"="+v.(string))
 		}
 	}
-	return variables
+	return envList
+}
+
+func unpackEnvironmentVariables(envList []string) map[string]string {
+	envMap := make(map[string]string)
+	for _, v := range envList {
+		parts := strings.Split(v, "=")
+		key := parts[0]
+		value := parts[1]
+		envMap[key] = value
+	}
+	return envMap
 }
 
 func printStackTrace(stack []string) {
@@ -45,7 +58,7 @@ func printStackTrace(stack []string) {
 	log.Printf("-------------------------")
 }
 
-func runCommand(command string, state *State, environment []string, workingDirectory string) (*State, error) {
+func runCommand(command string, state *State, workingDirectory string) (*State, error) {
 	shellMutexKV.Lock(shellScriptMutexKey)
 	defer shellMutexKV.Unlock(shellScriptMutexKey)
 
@@ -64,7 +77,7 @@ func runCommand(command string, state *State, environment []string, workingDirec
 	input, _ := json.Marshal(state.Output)
 	stdin := bytes.NewReader(input)
 	cmd.Stdin = stdin
-	environment = append(os.Environ(), environment...)
+	environment := append(append(os.Environ(), state.Environment...), state.SensitiveEnvironment...)
 	cmd.Env = environment
 	prStdout, pwStdout, err := os.Pipe()
 	if err != nil {
@@ -77,8 +90,6 @@ func runCommand(command string, state *State, environment []string, workingDirec
 	}
 	cmd.Stderr = pwStderr
 	cmd.Dir = workingDirectory
-
-	log.Printf("[DEBUG] shell script command old state: \"%v\"", state)
 
 	// Output what we're about to run
 	log.Printf("[DEBUG] shell script going to execute: %s %s", shell, flag)
@@ -93,7 +104,15 @@ func runCommand(command string, state *State, environment []string, workingDirec
 	stderrDoneCh := make(chan string)
 	go readOutput(prStderr, logCh, stderrDoneCh)
 	go readOutput(prStdout, logCh, stdoutDoneCh)
-	go logOutput(logCh)
+
+	// get secret values (if any) to sanitize in logs
+	secrets := unpackEnvironmentVariables(state.SensitiveEnvironment)
+	secretValues := make([]string, 0, len(secrets))
+	for _, v := range secrets {
+		secretValues = append(secretValues, v)
+	}
+	go logOutput(logCh, secretValues)
+
 	// Start the command
 	log.Printf("-------------------------")
 	log.Printf("[DEBUG] Starting execution...")
@@ -111,12 +130,14 @@ func runCommand(command string, state *State, environment []string, workingDirec
 	pwStderr.Close()
 
 	stdOutput := <-stdoutDoneCh
+	stdOutput = sanitizeString(stdOutput, secretValues)
 	stdError := <-stderrDoneCh
+	stdError = sanitizeString(stdError, secretValues)
 	close(logCh)
 
 	// If the script exited with a non-zero code then send the error up to Terraform
 	if err != nil {
-		return nil, fmt.Errorf("Error occured in Command: '%s' Error: '%s' \n StdOut: \n %s \n StdErr: \n %s", command, err.Error(), stdOutput, stdError)
+		return nil, fmt.Errorf("Error occurred during execution.\n Command: '%s' \n Error: '%s' \n StdOut: \n %s \n StdErr: \n %s", command, err.Error(), stdOutput, stdError)
 	}
 
 	log.Printf("-------------------------")
@@ -127,15 +148,22 @@ func runCommand(command string, state *State, environment []string, workingDirec
 	if o == nil {
 		return nil, nil
 	}
-	newState := NewState(environment, o)
-	log.Printf("[DEBUG] shell script command new state: \"%v\"", newState)
+	newState := NewState(state.Environment, state.SensitiveEnvironment, o)
 	return newState, nil
 }
 
-func logOutput(logCh chan string) {
+func logOutput(logCh chan string, secretValues []string) {
 	for line := range logCh {
-		log.Printf("  %s", line)
+		sanitizedLine := sanitizeString(line, secretValues)
+		log.Printf("  %s", sanitizedLine)
 	}
+}
+
+func sanitizeString(s string, secretValues []string) string {
+	for _, secret := range secretValues {
+		s = strings.ReplaceAll(s, secret, "******")
+	}
+	return s
 }
 
 func readOutput(r io.Reader, logCh chan<- string, doneCh chan<- string) {
