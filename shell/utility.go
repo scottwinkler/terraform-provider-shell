@@ -73,7 +73,7 @@ func runCommand(c *CommandConfig) (map[string]string, error) {
 	go readOutput(prStdout, logCh, stdoutDoneCh)
 
 	// get secret values (if any) to sanitize in logs
-	secrets := unpackEnvironmentVariables(c.SensitiveEnvironment)
+	secrets := expandEnvironmentVariables(c.SensitiveEnvironment)
 	secretValues := make([]string, 0, len(secrets))
 	for _, v := range secrets {
 		secretValues = append(secretValues, v)
