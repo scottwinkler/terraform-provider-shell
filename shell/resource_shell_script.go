@@ -104,8 +104,8 @@ func create(d *schema.ResourceData, meta interface{}, stack []Action) error {
 	l := d.Get("lifecycle_commands").([]interface{})
 	c := l[0].(map[string]interface{})
 	command := c["create"].(string)
-	environment := packEnvironmentVariables(d.Get("environment"))
-	sensitiveEnvironment := packEnvironmentVariables(d.Get("sensitive_environment"))
+	environment := flattenEnvironmentVariables(d.Get("environment"))
+	sensitiveEnvironment := flattenEnvironmentVariables(d.Get("sensitive_environment"))
 	workingDirectory := d.Get("working_directory").(string)
 	d.MarkNewResource()
 	commandConfig := &CommandConfig{
@@ -148,8 +148,8 @@ func read(d *schema.ResourceData, meta interface{}, stack []Action) error {
 		return nil
 	}
 
-	environment := packEnvironmentVariables(d.Get("environment"))
-	sensitiveEnvironment := packEnvironmentVariables(d.Get("sensitive_environment"))
+	environment := flattenEnvironmentVariables(d.Get("environment"))
+	sensitiveEnvironment := flattenEnvironmentVariables(d.Get("sensitive_environment"))
 	workingDirectory := d.Get("working_directory").(string)
 	previousOutput := expandOutput(d.Get("output"))
 
@@ -203,8 +203,8 @@ func update(d *schema.ResourceData, meta interface{}, stack []Action) error {
 		return create(d, meta, stack)
 	}
 
-	environment := packEnvironmentVariables(d.Get("environment"))
-	sensitiveEnvironment := packEnvironmentVariables(d.Get("sensitive_environment"))
+	environment := flattenEnvironmentVariables(d.Get("environment"))
+	sensitiveEnvironment := flattenEnvironmentVariables(d.Get("sensitive_environment"))
 	workingDirectory := d.Get("working_directory").(string)
 	previousOutput := expandOutput(d.Get("output"))
 
@@ -239,8 +239,8 @@ func delete(d *schema.ResourceData, meta interface{}, stack []Action) error {
 	l := d.Get("lifecycle_commands").([]interface{})
 	c := l[0].(map[string]interface{})
 	command := c["delete"].(string)
-	environment := packEnvironmentVariables(d.Get("environment"))
-	sensitiveEnvironment := packEnvironmentVariables(d.Get("sensitive_environment"))
+	environment := flattenEnvironmentVariables(d.Get("environment"))
+	sensitiveEnvironment := flattenEnvironmentVariables(d.Get("sensitive_environment"))
 	workingDirectory := d.Get("working_directory").(string)
 	previousOutput := expandOutput(d.Get("output"))
 
@@ -285,7 +285,7 @@ func expandOutput(o interface{}) map[string]string {
 	return output
 }
 
-func packEnvironmentVariables(ev interface{}) []string {
+func flattenEnvironmentVariables(ev interface{}) []string {
 	var envList []string
 	envMap := ev.(map[string]interface{})
 	if envMap != nil {
@@ -296,7 +296,7 @@ func packEnvironmentVariables(ev interface{}) []string {
 	return envList
 }
 
-func unpackEnvironmentVariables(envList []string) map[string]string {
+func expandEnvironmentVariables(envList []string) map[string]string {
 	envMap := make(map[string]string)
 	for _, v := range envList {
 		parts := strings.Split(v, "=")
