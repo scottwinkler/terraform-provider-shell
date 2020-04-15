@@ -11,54 +11,20 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/mitchellh/go-linereader"
 	"github.com/tidwall/gjson"
 )
 
-// State is a wrapper around both the input and output attributes that are relavent for updates
-type State struct {
+// CommandConfig is a helper struct
+type CommandConfig struct {
+	Command              string
 	Environment          []string
 	SensitiveEnvironment []string
-	Output               map[string]string
+	WorkingDirectory     string
+	Action               Action
+	PreviousOutput       map[string]string
 }
 
-// NewState is the constructor for State
-func NewState(environment []string, sensitiveEnvironment []string, output map[string]string) *State {
-	return &State{Environment: environment, SensitiveEnvironment: sensitiveEnvironment, Output: output}
-}
-
-func packEnvironmentVariables(ev interface{}) []string {
-	var envList []string
-	envMap := ev.(map[string]interface{})
-	if envMap != nil {
-		for k, v := range envMap {
-			envList = append(envList, k+"="+v.(string))
-		}
-	}
-	return envList
-}
-
-func unpackEnvironmentVariables(envList []string) map[string]string {
-	envMap := make(map[string]string)
-	for _, v := range envList {
-		parts := strings.Split(v, "=")
-		key := parts[0]
-		value := parts[1]
-		envMap[key] = value
-	}
-	return envMap
-}
-
-func printStackTrace(stack []string) {
-	log.Printf("-------------------------")
-	log.Printf("[DEBUG] Current stack:")
-	for _, v := range stack {
-		log.Printf("[DEBUG] -- %s", v)
-	}
-	log.Printf("-------------------------")
-}
-
-func runCommand(command string, state *State, workingDirectory string) (*State, error) {
+func runCommand(c *CommandConfig) (map[string]string, error) {
 	shellMutexKV.Lock(shellScriptMutexKey)
 	defer shellMutexKV.Unlock(shellScriptMutexKey)
 
@@ -73,12 +39,13 @@ func runCommand(command string, state *State, workingDirectory string) (*State, 
 	}
 
 	// Setup the command
-	cmd := exec.Command(shell, flag, command)
-	input, _ := json.Marshal(state.Output)
-	stdin := bytes.NewReader(input)
-	cmd.Stdin = stdin
-	environment := append(append(os.Environ(), state.Environment...), state.SensitiveEnvironment...)
-	cmd.Env = environment
+	cmd := exec.Command(shell, flag, c.Command)
+	if c.Action != ActionCreate {
+		input, _ := json.Marshal(c.PreviousOutput)
+		stdin := bytes.NewReader(input)
+		cmd.Stdin = stdin
+	}
+	cmd.Env = append(append(os.Environ(), c.Environment...), c.SensitiveEnvironment...)
 	prStdout, pwStdout, err := os.Pipe()
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize pipe for stdout: %s", err)
@@ -89,11 +56,11 @@ func runCommand(command string, state *State, workingDirectory string) (*State, 
 		return nil, fmt.Errorf("failed to initialize pipe for stderr: %s", err)
 	}
 	cmd.Stderr = pwStderr
-	cmd.Dir = workingDirectory
+	cmd.Dir = c.WorkingDirectory
 
 	// Output what we're about to run
 	log.Printf("[DEBUG] shell script going to execute: %s %s", shell, flag)
-	commandLines := strings.Split(command, "\n")
+	commandLines := strings.Split(c.Command, "\n")
 	for _, line := range commandLines {
 		log.Printf("   %s", line)
 	}
@@ -106,7 +73,7 @@ func runCommand(command string, state *State, workingDirectory string) (*State, 
 	go readOutput(prStdout, logCh, stdoutDoneCh)
 
 	// get secret values (if any) to sanitize in logs
-	secrets := unpackEnvironmentVariables(state.SensitiveEnvironment)
+	secrets := unpackEnvironmentVariables(c.SensitiveEnvironment)
 	secretValues := make([]string, 0, len(secrets))
 	for _, v := range secrets {
 		secretValues = append(secretValues, v)
@@ -137,44 +104,14 @@ func runCommand(command string, state *State, workingDirectory string) (*State, 
 
 	// If the script exited with a non-zero code then send the error up to Terraform
 	if err != nil {
-		return nil, fmt.Errorf("Error occurred during execution.\n Command: '%s' \n Error: '%s' \n StdOut: \n %s \n StdErr: \n %s", command, err.Error(), stdOutput, stdError)
+		return nil, fmt.Errorf("Error occurred during execution.\n Command: '%s' \n Error: '%s' \n StdOut: \n %s \n StdErr: \n %s", c.Command, err.Error(), stdOutput, stdError)
 	}
 
 	log.Printf("-------------------------")
 	log.Printf("[DEBUG] Command execution completed:")
 	log.Printf("-------------------------")
 	o := getOutputMap(stdOutput)
-	//if output is nil then no state was returned from output
-	if o == nil {
-		return nil, nil
-	}
-	newState := NewState(state.Environment, state.SensitiveEnvironment, o)
-	return newState, nil
-}
-
-func logOutput(logCh chan string, secretValues []string) {
-	for line := range logCh {
-		sanitizedLine := sanitizeString(line, secretValues)
-		log.Printf("  %s", sanitizedLine)
-	}
-}
-
-func sanitizeString(s string, secretValues []string) string {
-	for _, secret := range secretValues {
-		s = strings.ReplaceAll(s, secret, "******")
-	}
-	return s
-}
-
-func readOutput(r io.Reader, logCh chan<- string, doneCh chan<- string) {
-	defer close(doneCh)
-	lr := linereader.New(r)
-	var output strings.Builder
-	for line := range lr.Ch {
-		logCh <- line
-		output.WriteString(line)
-	}
-	doneCh <- output.String()
+	return o, nil
 }
 
 func parseJSON(s string) (map[string]string, error) {

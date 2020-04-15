@@ -4,6 +4,8 @@ import (
 	"log"
 	"reflect"
 
+	"strings"
+
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/rs/xid"
 )
@@ -30,7 +32,6 @@ func resourceShellScript() *schema.Resource {
 						"update": {
 							Type:     schema.TypeString,
 							Optional: true,
-							ForceNew: true,
 						},
 						"read": {
 							Type:     schema.TypeString,
@@ -40,7 +41,6 @@ func resourceShellScript() *schema.Resource {
 						"delete": {
 							Type:     schema.TypeString,
 							Required: true,
-							ForceNew: true,
 						},
 					},
 				},
@@ -54,7 +54,6 @@ func resourceShellScript() *schema.Resource {
 				Type:     schema.TypeMap,
 				Optional: true,
 				Elem:     schema.TypeString,
-				ForceNew: true,
 			},
 			"sensitive_environment": {
 				Type:      schema.TypeMap,
@@ -84,22 +83,22 @@ func resourceShellScript() *schema.Resource {
 
 //helpers to unwravel the recursive bits by adding a base condition
 func resourceShellScriptCreate(d *schema.ResourceData, meta interface{}) error {
-	return create(d, meta, []string{"create"})
+	return create(d, meta, []Action{ActionCreate})
 }
 
 func resourceShellScriptRead(d *schema.ResourceData, meta interface{}) error {
-	return read(d, meta, []string{"read"})
+	return read(d, meta, []Action{ActionRead})
 }
 
 func resourceShellScriptUpdate(d *schema.ResourceData, meta interface{}) error {
-	return update(d, meta, []string{"update"})
+	return update(d, meta, []Action{ActionUpdate})
 }
 
 func resourceShellScriptDelete(d *schema.ResourceData, meta interface{}) error {
-	return delete(d, meta, []string{"delete"})
+	return delete(d, meta, []Action{ActionDelete})
 }
 
-func create(d *schema.ResourceData, meta interface{}, stack []string) error {
+func create(d *schema.ResourceData, meta interface{}, stack []Action) error {
 	log.Printf("[DEBUG] Creating shell script resource...")
 	printStackTrace(stack)
 	l := d.Get("lifecycle_commands").([]interface{})
@@ -109,21 +108,26 @@ func create(d *schema.ResourceData, meta interface{}, stack []string) error {
 	sensitiveEnvironment := packEnvironmentVariables(d.Get("sensitive_environment"))
 	workingDirectory := d.Get("working_directory").(string)
 	d.MarkNewResource()
-	output := make(map[string]string)
-	state := NewState(environment, sensitiveEnvironment, output)
-	newState, err := runCommand(command, state, workingDirectory)
+	commandConfig := &CommandConfig{
+		Command:              command,
+		Environment:          environment,
+		SensitiveEnvironment: sensitiveEnvironment,
+		WorkingDirectory:     workingDirectory,
+		Action:               ActionCreate,
+	}
+	output, err := runCommand(commandConfig)
 	if err != nil {
 		return err
 	}
 
-	//if create doesn't return a new state then must call the read operation
-	if newState == nil {
-		stack = append(stack, "read")
+	//if create doesn't return output then assume we should call the read operation
+	if output == nil {
+		stack = append(stack, ActionRead)
 		if err := read(d, meta, stack); err != nil {
 			return err
 		}
 	} else {
-		d.Set("output", newState.Output)
+		d.Set("output", output)
 	}
 
 	//create random uuid for the id
@@ -132,7 +136,7 @@ func create(d *schema.ResourceData, meta interface{}, stack []string) error {
 	return nil
 }
 
-func read(d *schema.ResourceData, meta interface{}, stack []string) error {
+func read(d *schema.ResourceData, meta interface{}, stack []Action) error {
 	log.Printf("[DEBUG] Reading shell script resource...")
 	printStackTrace(stack)
 	l := d.Get("lifecycle_commands").([]interface{})
@@ -147,36 +151,43 @@ func read(d *schema.ResourceData, meta interface{}, stack []string) error {
 	environment := packEnvironmentVariables(d.Get("environment"))
 	sensitiveEnvironment := packEnvironmentVariables(d.Get("sensitive_environment"))
 	workingDirectory := d.Get("working_directory").(string)
-	output := expandOutput(d.Get("output"))
+	previousOutput := expandOutput(d.Get("output"))
 
-	state := NewState(environment, sensitiveEnvironment, output)
-	newState, err := runCommand(command, state, workingDirectory)
+	commandConfig := &CommandConfig{
+		Command:              command,
+		Environment:          environment,
+		SensitiveEnvironment: sensitiveEnvironment,
+		WorkingDirectory:     workingDirectory,
+		Action:               ActionRead,
+		PreviousOutput:       previousOutput,
+	}
+	output, err := runCommand(commandConfig)
 	if err != nil {
 		return err
 	}
 
-	if newState == nil {
+	if output == nil {
 		log.Printf("[DEBUG] State from read operation was nil. Marking resource for deletion.")
 		d.SetId("")
 		return nil
 	}
-	log.Printf("[DEBUG] output:|%v|", output)
-	log.Printf("[DEBUG] new output:|%v|", newState.Output)
-	isStateEqual := reflect.DeepEqual(output, newState.Output)
+	log.Printf("[DEBUG] previous output:|%v|", output)
+	log.Printf("[DEBUG] new output:|%v|", previousOutput)
+	isStateEqual := reflect.DeepEqual(output, previousOutput)
 	isNewResource := d.IsNewResource()
-	isUpdatedResource := stack[0] == "update"
+	isUpdatedResource := stack[0] == ActionUpdate
 	if !isStateEqual && !isNewResource && !isUpdatedResource {
 		log.Printf("[DEBUG] Previous state not equal to new state. Marking resource as dirty to trigger update.")
 		d.Set("dirty", true)
 		return nil
 	}
 
-	d.Set("output", newState.Output)
+	d.Set("output", output)
 
 	return nil
 }
 
-func update(d *schema.ResourceData, meta interface{}, stack []string) error {
+func update(d *schema.ResourceData, meta interface{}, stack []Action) error {
 	log.Printf("[DEBUG] Updating shell script resource...")
 	d.Set("dirty", false)
 	printStackTrace(stack)
@@ -186,36 +197,43 @@ func update(d *schema.ResourceData, meta interface{}, stack []string) error {
 
 	//if update is not set, then treat it simply as a tainted resource - delete then recreate
 	if len(command) == 0 {
-		stack = append(stack, "delete")
+		stack = append(stack, ActionDelete)
 		delete(d, meta, stack)
-		stack = append(stack, "create")
+		stack = append(stack, ActionCreate)
 		return create(d, meta, stack)
 	}
 
 	environment := packEnvironmentVariables(d.Get("environment"))
 	sensitiveEnvironment := packEnvironmentVariables(d.Get("sensitive_environment"))
 	workingDirectory := d.Get("working_directory").(string)
-	output := expandOutput(d.Get("output"))
+	previousOutput := expandOutput(d.Get("output"))
 
-	state := NewState(environment, sensitiveEnvironment, output)
-	newState, err := runCommand(command, state, workingDirectory)
+	commandConfig := &CommandConfig{
+		Command:              command,
+		Environment:          environment,
+		SensitiveEnvironment: sensitiveEnvironment,
+		WorkingDirectory:     workingDirectory,
+		Action:               ActionDelete,
+		PreviousOutput:       previousOutput,
+	}
+	output, err := runCommand(commandConfig)
 	if err != nil {
 		return err
 	}
 
-	//if update doesn't return a new state then must call the read operation
-	if newState == nil {
-		stack = append(stack, "read")
+	//if update doesn't return output then must call the read operation
+	if output == nil {
+		stack = append(stack, ActionRead)
 		if err := read(d, meta, stack); err != nil {
 			return err
 		}
 	} else {
-		d.Set("output", newState.Output)
+		d.Set("output", output)
 	}
 	return nil
 }
 
-func delete(d *schema.ResourceData, meta interface{}, stack []string) error {
+func delete(d *schema.ResourceData, meta interface{}, stack []Action) error {
 	log.Printf("[DEBUG] Deleting shell script resource...")
 	printStackTrace(stack)
 	l := d.Get("lifecycle_commands").([]interface{})
@@ -224,16 +242,37 @@ func delete(d *schema.ResourceData, meta interface{}, stack []string) error {
 	environment := packEnvironmentVariables(d.Get("environment"))
 	sensitiveEnvironment := packEnvironmentVariables(d.Get("sensitive_environment"))
 	workingDirectory := d.Get("working_directory").(string)
-	output := expandOutput(d.Get("output"))
+	previousOutput := expandOutput(d.Get("output"))
 
-	state := NewState(environment, sensitiveEnvironment, output)
-	_, err := runCommand(command, state, workingDirectory)
+	commandConfig := &CommandConfig{
+		Command:              command,
+		Environment:          environment,
+		SensitiveEnvironment: sensitiveEnvironment,
+		WorkingDirectory:     workingDirectory,
+		Action:               ActionDelete,
+		PreviousOutput:       previousOutput,
+	}
+	_, err := runCommand(commandConfig)
 	if err != nil {
 		return err
 	}
 	d.SetId("")
 	return nil
 }
+
+//Action is an enum for CRUD operations
+type Action string
+
+const (
+	//ActionCreate ...
+	ActionCreate Action = "create"
+	//ActionRead ...
+	ActionRead Action = "read"
+	//ActionUpdate ...
+	ActionUpdate Action = "update"
+	//ActionDelete ...
+	ActionDelete Action = "delete"
+)
 
 func expandOutput(o interface{}) map[string]string {
 	om := o.(map[string]interface{})
@@ -244,4 +283,26 @@ func expandOutput(o interface{}) map[string]string {
 		}
 	}
 	return output
+}
+
+func packEnvironmentVariables(ev interface{}) []string {
+	var envList []string
+	envMap := ev.(map[string]interface{})
+	if envMap != nil {
+		for k, v := range envMap {
+			envList = append(envList, k+"="+v.(string))
+		}
+	}
+	return envList
+}
+
+func unpackEnvironmentVariables(envList []string) map[string]string {
+	envMap := make(map[string]string)
+	for _, v := range envList {
+		parts := strings.Split(v, "=")
+		key := parts[0]
+		value := parts[1]
+		envMap[key] = value
+	}
+	return envMap
 }
