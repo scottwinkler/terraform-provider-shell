@@ -4,6 +4,8 @@ import (
 	"log"
 	"reflect"
 
+	"strings"
+
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/rs/xid"
 )
@@ -30,7 +32,6 @@ func resourceShellScript() *schema.Resource {
 						"update": {
 							Type:     schema.TypeString,
 							Optional: true,
-							ForceNew: true,
 						},
 						"read": {
 							Type:     schema.TypeString,
@@ -40,7 +41,6 @@ func resourceShellScript() *schema.Resource {
 						"delete": {
 							Type:     schema.TypeString,
 							Required: true,
-							ForceNew: true,
 						},
 					},
 				},
@@ -54,7 +54,6 @@ func resourceShellScript() *schema.Resource {
 				Type:     schema.TypeMap,
 				Optional: true,
 				Elem:     schema.TypeString,
-				ForceNew: true,
 			},
 			"sensitive_environment": {
 				Type:      schema.TypeMap,
@@ -111,7 +110,7 @@ func create(d *schema.ResourceData, meta interface{}, stack []string) error {
 	d.MarkNewResource()
 	output := make(map[string]string)
 	state := NewState(environment, sensitiveEnvironment, output)
-	newState, err := runCommand(command, state, workingDirectory)
+	newState, err := runCommand(command, workingDirectory, CreateAction, state)
 	if err != nil {
 		return err
 	}
@@ -150,7 +149,7 @@ func read(d *schema.ResourceData, meta interface{}, stack []string) error {
 	output := expandOutput(d.Get("output"))
 
 	state := NewState(environment, sensitiveEnvironment, output)
-	newState, err := runCommand(command, state, workingDirectory)
+	newState, err := runCommand(command, workingDirectory, ReadAction, state)
 	if err != nil {
 		return err
 	}
@@ -160,7 +159,7 @@ func read(d *schema.ResourceData, meta interface{}, stack []string) error {
 		d.SetId("")
 		return nil
 	}
-	log.Printf("[DEBUG] output:|%v|", output)
+	log.Printf("[DEBUG] previous output:|%v|", output)
 	log.Printf("[DEBUG] new output:|%v|", newState.Output)
 	isStateEqual := reflect.DeepEqual(output, newState.Output)
 	isNewResource := d.IsNewResource()
@@ -198,7 +197,7 @@ func update(d *schema.ResourceData, meta interface{}, stack []string) error {
 	output := expandOutput(d.Get("output"))
 
 	state := NewState(environment, sensitiveEnvironment, output)
-	newState, err := runCommand(command, state, workingDirectory)
+	newState, err := runCommand(command, workingDirectory, UpdateAction, state)
 	if err != nil {
 		return err
 	}
@@ -227,13 +226,22 @@ func delete(d *schema.ResourceData, meta interface{}, stack []string) error {
 	output := expandOutput(d.Get("output"))
 
 	state := NewState(environment, sensitiveEnvironment, output)
-	_, err := runCommand(command, state, workingDirectory)
+	_, err := runCommand(command, workingDirectory, DeleteAction, state)
 	if err != nil {
 		return err
 	}
 	d.SetId("")
 	return nil
 }
+
+type Action string
+
+const (
+	CreateAction Action = "create"
+	ReadAction   Action = "read"
+	UpdateAction Action = "update"
+	DeleteAction Action = "delete"
+)
 
 func expandOutput(o interface{}) map[string]string {
 	om := o.(map[string]interface{})
@@ -244,4 +252,26 @@ func expandOutput(o interface{}) map[string]string {
 		}
 	}
 	return output
+}
+
+func packEnvironmentVariables(ev interface{}) []string {
+	var envList []string
+	envMap := ev.(map[string]interface{})
+	if envMap != nil {
+		for k, v := range envMap {
+			envList = append(envList, k+"="+v.(string))
+		}
+	}
+	return envList
+}
+
+func unpackEnvironmentVariables(envList []string) map[string]string {
+	envMap := make(map[string]string)
+	for _, v := range envList {
+		parts := strings.Split(v, "=")
+		key := parts[0]
+		value := parts[1]
+		envMap[key] = value
+	}
+	return envMap
 }

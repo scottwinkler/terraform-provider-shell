@@ -67,7 +67,7 @@ func dataSourceShellScriptRead(d *schema.ResourceData, meta interface{}) error {
 	output := make(map[string]string)
 
 	state := NewState(environment, sensitiveEnvironment, output)
-	newState, err := runCommand(command, state, workingDirectory)
+	newState, err := runCommand(command, workingDirectory, ReadAction, state )
 	if err != nil {
 		return err
 	}

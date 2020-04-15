@@ -11,7 +11,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/mitchellh/go-linereader"
 	"github.com/tidwall/gjson"
 )
 
@@ -27,38 +26,7 @@ func NewState(environment []string, sensitiveEnvironment []string, output map[st
 	return &State{Environment: environment, SensitiveEnvironment: sensitiveEnvironment, Output: output}
 }
 
-func packEnvironmentVariables(ev interface{}) []string {
-	var envList []string
-	envMap := ev.(map[string]interface{})
-	if envMap != nil {
-		for k, v := range envMap {
-			envList = append(envList, k+"="+v.(string))
-		}
-	}
-	return envList
-}
-
-func unpackEnvironmentVariables(envList []string) map[string]string {
-	envMap := make(map[string]string)
-	for _, v := range envList {
-		parts := strings.Split(v, "=")
-		key := parts[0]
-		value := parts[1]
-		envMap[key] = value
-	}
-	return envMap
-}
-
-func printStackTrace(stack []string) {
-	log.Printf("-------------------------")
-	log.Printf("[DEBUG] Current stack:")
-	for _, v := range stack {
-		log.Printf("[DEBUG] -- %s", v)
-	}
-	log.Printf("-------------------------")
-}
-
-func runCommand(command string, state *State, workingDirectory string) (*State, error) {
+func runCommand(command string, workingDirectory string, action Action, state *State) (*State, error) {
 	shellMutexKV.Lock(shellScriptMutexKey)
 	defer shellMutexKV.Unlock(shellScriptMutexKey)
 
@@ -74,9 +42,11 @@ func runCommand(command string, state *State, workingDirectory string) (*State, 
 
 	// Setup the command
 	cmd := exec.Command(shell, flag, command)
-	input, _ := json.Marshal(state.Output)
-	stdin := bytes.NewReader(input)
-	cmd.Stdin = stdin
+	if action != CreateAction {
+		input, _ := json.Marshal(state.Output)
+		stdin := bytes.NewReader(input)
+		cmd.Stdin = stdin
+	}
 	environment := append(append(os.Environ(), state.Environment...), state.SensitiveEnvironment...)
 	cmd.Env = environment
 	prStdout, pwStdout, err := os.Pipe()
@@ -150,31 +120,6 @@ func runCommand(command string, state *State, workingDirectory string) (*State, 
 	}
 	newState := NewState(state.Environment, state.SensitiveEnvironment, o)
 	return newState, nil
-}
-
-func logOutput(logCh chan string, secretValues []string) {
-	for line := range logCh {
-		sanitizedLine := sanitizeString(line, secretValues)
-		log.Printf("  %s", sanitizedLine)
-	}
-}
-
-func sanitizeString(s string, secretValues []string) string {
-	for _, secret := range secretValues {
-		s = strings.ReplaceAll(s, secret, "******")
-	}
-	return s
-}
-
-func readOutput(r io.Reader, logCh chan<- string, doneCh chan<- string) {
-	defer close(doneCh)
-	lr := linereader.New(r)
-	var output strings.Builder
-	for line := range lr.Ch {
-		logCh <- line
-		output.WriteString(line)
-	}
-	doneCh <- output.String()
 }
 
 func parseJSON(s string) (map[string]string, error) {
