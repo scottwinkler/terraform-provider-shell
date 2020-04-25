@@ -5,6 +5,8 @@ This plugin is for wrapping shell scripts to make them fully fledged terraform r
 
 Since this provider is rather different than most other provider, it is recommended that you at least have some familiarity with the internals of Terraform before attempting to use this provider.
 
+**Note:** many people use this provider for wrapping APIs of resources that are not supported by existing providers. For an example of using this provider to manage a Github repo resource, see `examples/github-repo`
+
 ## Requirements
 
 -	[Terraform](https://www.terraform.io/downloads.html) 0.12.x
@@ -146,9 +148,6 @@ Stdout and stderr stream to log files. You can get this by setting:
 ```
 export TF_LOG=debug
 ```
-
-## Python and Golang Support
-There is now an example for how to use the shell provider to invoke python and golang files. Please check in the `examples/python-adapter` and `examples/golang-adapter` folder for more information on this. Essentially it is an adapter around the `shell_resource` that invokes methods on an interface that you implement.
 
 ## Testing
 If you wish to run automated tests:
