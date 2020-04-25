@@ -11,7 +11,13 @@ func Provider() terraform.ResourceProvider {
 
 	// The actual provider
 	return &schema.Provider{
-		Schema: map[string]*schema.Schema{},
+		Schema: map[string]*schema.Schema{
+			"environment": {
+				Type:     schema.TypeMap,
+				Optional: true,
+				Elem:     schema.TypeString,
+			},
+		},
 
 		DataSourcesMap: map[string]*schema.Resource{
 			"shell_script": dataSourceShellScript(),
@@ -25,7 +31,9 @@ func Provider() terraform.ResourceProvider {
 }
 
 func providerConfigure(d *schema.ResourceData) (interface{}, error) {
-	config := Config{}
+	config := Config{
+		Environment: d.Get("environment").(map[string]interface{}),
+	}
 	return config.Client()
 }
 

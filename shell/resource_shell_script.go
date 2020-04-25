@@ -101,11 +101,15 @@ func resourceShellScriptDelete(d *schema.ResourceData, meta interface{}) error {
 func create(d *schema.ResourceData, meta interface{}, stack []Action) error {
 	log.Printf("[DEBUG] Creating shell script resource...")
 	printStackTrace(stack)
+
+	client := meta.(*Client)
 	l := d.Get("lifecycle_commands").([]interface{})
 	c := l[0].(map[string]interface{})
 	command := c["create"].(string)
-	environment := flattenEnvironmentVariables(d.Get("environment"))
+	envVariables := getEnvironmentVariables(client, d)
+	environment := flattenEnvironmentVariables(envVariables)
 	sensitiveEnvironment := flattenEnvironmentVariables(d.Get("sensitive_environment"))
+
 	workingDirectory := d.Get("working_directory").(string)
 	d.MarkNewResource()
 	commandConfig := &CommandConfig{
@@ -148,7 +152,9 @@ func read(d *schema.ResourceData, meta interface{}, stack []Action) error {
 		return nil
 	}
 
-	environment := flattenEnvironmentVariables(d.Get("environment"))
+	client := meta.(*Client)
+	envVariables := getEnvironmentVariables(client, d)
+	environment := flattenEnvironmentVariables(envVariables)
 	sensitiveEnvironment := flattenEnvironmentVariables(d.Get("sensitive_environment"))
 	workingDirectory := d.Get("working_directory").(string)
 	previousOutput := expandOutput(d.Get("output"))
@@ -203,7 +209,9 @@ func update(d *schema.ResourceData, meta interface{}, stack []Action) error {
 		return create(d, meta, stack)
 	}
 
-	environment := flattenEnvironmentVariables(d.Get("environment"))
+	client := meta.(*Client)
+	envVariables := getEnvironmentVariables(client, d)
+	environment := flattenEnvironmentVariables(envVariables)
 	sensitiveEnvironment := flattenEnvironmentVariables(d.Get("sensitive_environment"))
 	workingDirectory := d.Get("working_directory").(string)
 	previousOutput := expandOutput(d.Get("output"))
@@ -239,7 +247,10 @@ func delete(d *schema.ResourceData, meta interface{}, stack []Action) error {
 	l := d.Get("lifecycle_commands").([]interface{})
 	c := l[0].(map[string]interface{})
 	command := c["delete"].(string)
-	environment := flattenEnvironmentVariables(d.Get("environment"))
+
+	client := meta.(*Client)
+	envVariables := getEnvironmentVariables(client, d)
+	environment := flattenEnvironmentVariables(envVariables)
 	sensitiveEnvironment := flattenEnvironmentVariables(d.Get("sensitive_environment"))
 	workingDirectory := d.Get("working_directory").(string)
 	previousOutput := expandOutput(d.Get("output"))
