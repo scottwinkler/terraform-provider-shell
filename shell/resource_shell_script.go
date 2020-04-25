@@ -102,10 +102,10 @@ func create(d *schema.ResourceData, meta interface{}, stack []Action) error {
 	log.Printf("[DEBUG] Creating shell script resource...")
 	printStackTrace(stack)
 
-	client := meta.(*Client)
 	l := d.Get("lifecycle_commands").([]interface{})
 	c := l[0].(map[string]interface{})
 	command := c["create"].(string)
+	client := meta.(*Client)
 	envVariables := getEnvironmentVariables(client, d)
 	environment := flattenEnvironmentVariables(envVariables)
 	sensitiveEnvironment := flattenEnvironmentVariables(d.Get("sensitive_environment"))

@@ -11,7 +11,7 @@ type Client struct {
 }
 
 // Client configures and returns a fully initialized ShellClient
-func (c *Config) Client() (interface{}, error) {
+func (c *Config) Client() (*Client, error) {
 	client := &Client{
 		config: c,
 	}

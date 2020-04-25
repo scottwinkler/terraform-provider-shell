@@ -180,10 +180,10 @@ func readFile(r io.Reader) string {
 func getEnvironmentVariables(client *Client, d *schema.ResourceData) map[string]interface{} {
 	variables := make(map[string]interface{})
 	resEnv := d.Get("environment").(map[string]interface{})
-	for k, v := range resEnv {
+	for k, v := range client.config.Environment {
 		variables[k] = v
 	}
-	for k, v := range client.config.Environment {
+	for k, v := range resEnv {
 		variables[k] = v
 	}
 

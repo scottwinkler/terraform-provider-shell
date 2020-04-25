@@ -13,6 +13,8 @@ var testAccProvider *schema.Provider
 
 func init() {
 	testAccProvider = Provider().(*schema.Provider)
+	testAccProvider.ConfigureFunc = testProviderConfigure
+
 	testAccProviders = map[string]terraform.ResourceProvider{
 		"shell": testAccProvider,
 	}
@@ -54,4 +56,14 @@ func TestProvider_HasChildDataSources(t *testing.T) {
 		require.Contains(t, dataSources, resource, "An expected data source was not registered")
 		require.NotNil(t, dataSources[resource], "A data source cannot have a nil schema")
 	}
+}
+
+func testProviderConfigure(d *schema.ResourceData) (interface{}, error) {
+	config := Config{}
+	config.Environment = map[string]interface{}{
+		"TEST_ENV1": "Env1_Val01",
+		"TEST_ENV2": "Env2_Val02",
+	}
+
+	return config.Client()
 }
