@@ -105,6 +105,25 @@ func TestAccShellShellScript_complete(t *testing.T) {
 	})
 }
 
+func TestAccShellShellScript_providerEnvCud(t *testing.T) {
+	resourceName := "shell_script.cud"
+	resource.Test(t, resource.TestCase{
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckShellScriptDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccShellScriptConfigWithProviderEnv_create_update_delete(),
+
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "output.%", "1"),
+					resource.TestCheckResourceAttr(resourceName, "output.value", "Env2_Val02"),
+					resource.TestCheckResourceAttrSet(resourceName, "id"),
+				),
+			},
+		},
+	})
+}
+
 func testAccCheckShellScriptDestroy(s *terraform.State) error {
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "shell_script" {
@@ -225,4 +244,31 @@ func testAccShellScriptConfig_complete(outValue string) string {
 		}
 	  }
 `, outValue)
+}
+
+func testAccShellScriptConfigWithProviderEnv_create_update_delete() string {
+	return `
+	resource "shell_script" "cud" {
+		lifecycle_commands {
+		  create = <<EOF
+		    out="{\"value\": \"$TEST_ENV2\"}"
+	        touch create_update_delete.json
+			echo $out >> create_update_delete.json
+			cat create_update_delete.json
+EOF
+		  update = <<EOF
+			rm -rf create_update_delete.json
+			out="{\"value\": \"$TEST_ENV2\"}"
+			touch "create_update_delete.json"
+			echo $out >> create_update_delete.json
+			cat create_update_delete.json
+EOF
+		  delete = "rm -rf create_update_delete.json"
+		}
+
+		environment = {
+			filename= "create_update_delete.json"
+		}
+	  }
+`
 }

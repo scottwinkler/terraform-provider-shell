@@ -61,7 +61,9 @@ func dataSourceShellScriptRead(d *schema.ResourceData, meta interface{}) error {
 	value := c["read"]
 
 	command := value.(string)
-	environment := flattenEnvironmentVariables(d.Get("environment"))
+	client := meta.(*Client)
+	envVariables := getEnvironmentVariables(client, d)
+	environment := flattenEnvironmentVariables(envVariables)
 	sensitiveEnvironment := flattenEnvironmentVariables(d.Get("sensitive_environment"))
 	workingDirectory := d.Get("working_directory").(string)
 

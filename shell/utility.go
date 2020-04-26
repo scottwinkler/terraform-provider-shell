@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/tidwall/gjson"
 )
 
@@ -174,4 +175,17 @@ func readFile(r io.Reader) string {
 		buffer.Write(tmpdata)
 	}
 	return buffer.String()
+}
+
+func getEnvironmentVariables(client *Client, d *schema.ResourceData) map[string]interface{} {
+	variables := make(map[string]interface{})
+	resEnv := d.Get("environment").(map[string]interface{})
+	for k, v := range client.config.Environment {
+		variables[k] = v
+	}
+	for k, v := range resEnv {
+		variables[k] = v
+	}
+
+	return variables
 }
