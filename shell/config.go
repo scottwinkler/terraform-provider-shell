@@ -2,7 +2,7 @@ package shell
 
 //Config is the config for the client.
 type Config struct {
-	Environment map[string]interface{}
+	Environment          map[string]interface{}
 	SensitiveEnvironment map[string]interface{}
 }
 
