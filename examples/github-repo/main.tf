@@ -1,9 +1,15 @@
 variable "oauth_token" {
-    type = string
+  type = string
+}
+
+provider "shell" {
+  sensitive_environment = {
+    OAUTH_TOKEN = var.oauth_token
+  }
 }
 
 resource "shell_script" "github_repository" {
-   lifecycle_commands {
+  lifecycle_commands {
     create = file("${path.module}/scripts/create.sh")
     read   = file("${path.module}/scripts/read.sh")
     update = file("${path.module}/scripts/update.sh")
@@ -11,10 +17,7 @@ resource "shell_script" "github_repository" {
   }
 
   environment = {
-    NAME = "HELLO-WORLD"
+    NAME        = "HELLO-WORLD"
     DESCRIPTION = "description"
-  }
-  sensitive_environment = {
-    OAUTH_TOKEN = var.oauth_token
   }
 }

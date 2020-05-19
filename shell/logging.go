@@ -1,6 +1,7 @@
 package shell
 
 import (
+	"bytes"
 	"io"
 	"log"
 	"strings"
@@ -25,10 +26,12 @@ func logOutput(logCh chan string, secretValues []string) {
 }
 
 func sanitizeString(s string, secretValues []string) string {
+	newString := s
 	for _, secret := range secretValues {
-		s = strings.ReplaceAll(s, secret, "******")
+		replacement := strings.Repeat("*", len(s))
+		newString = strings.ReplaceAll(newString, secret, replacement)
 	}
-	return s
+	return newString
 }
 
 func readOutput(r io.Reader, logCh chan<- string, doneCh chan<- string) {
@@ -40,4 +43,18 @@ func readOutput(r io.Reader, logCh chan<- string, doneCh chan<- string) {
 		output.WriteString(line)
 	}
 	doneCh <- output.String()
+}
+
+func readFile(r io.Reader) string {
+	const maxBufSize = 8 * 1024
+	buffer := new(bytes.Buffer)
+	for {
+		tmpdata := make([]byte, maxBufSize)
+		bytecount, _ := r.Read(tmpdata)
+		if bytecount == 0 {
+			break
+		}
+		buffer.Write(tmpdata)
+	}
+	return buffer.String()
 }
