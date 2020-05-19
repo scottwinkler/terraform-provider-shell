@@ -17,6 +17,11 @@ func Provider() terraform.ResourceProvider {
 				Optional: true,
 				Elem:     schema.TypeString,
 			},
+			"sensitive_environment": {
+				Type:     schema.TypeMap,
+				Optional: true,
+				Elem:     schema.TypeString,
+			},
 		},
 
 		DataSourcesMap: map[string]*schema.Resource{
@@ -32,7 +37,8 @@ func Provider() terraform.ResourceProvider {
 
 func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 	config := Config{
-		Environment: d.Get("environment").(map[string]interface{}),
+		Environment:          d.Get("environment").(map[string]interface{}),
+		SensitiveEnvironment: d.Get("sensitive_environment").(map[string]interface{}),
 	}
 	return config.Client()
 }

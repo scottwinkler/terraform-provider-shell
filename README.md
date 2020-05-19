@@ -32,14 +32,21 @@ $ make build
 To use this plugin, go to releases and download the binary for your specific OS and architecture. You can install the plugin by either putting it in your `~/.terraform/plugins` folder or in your terraform workspace by performing a `terraform init`.
 
 ## Configuring the Provider
-There is nothing to configure for the provider, you can declare it like so (or omit entirely if you like):
+The provider can be configured with option `environment` and `sensitive_environment` attributes. If these are set, then they will be used to configure all resources which rely on them (without triggering a force new update!)
 
 ```
-provider "shell" {}
+provider "shell" {
+	environment = {
+		FOO = "bar"
+	}
+	sensitive_environment = {
+		SECRET_FOO = var.secret_foo
+	}
+}
 ```
 
 ## Data Sources
-The simplest example is the data source which implements only Read(). Any output to stdout or stderr will show up in the logs, but to save state, you must output a JSON payload to stdout. The last JSON object printed to stdout will be taken to be the output state. The JSON can be a complex nested JSON, but will be flattened into a `map[string]string`. The reason for this is that your JSON payload variables can be accessed from the output map of this resource and used like a normal terraform output, so the value must be a string. You can use jsondecode() to read nested JSON if you really need to.
+The simplest example is the data source which implements only Read(). Any output to stdout or stderr will show up in the logs, but to save state, you must output a JSON payload to stdout. The last JSON object printed to stdout will be taken to be the output state. The JSON can be a complex nested JSON, but will be flattened into a `map[string]string`. The reason for this is that your JSON payload variables can be accessed from the output map of this resource and used like a normal terraform output, so the value must be a string. You can use the built-in jsondecode() function to read nested JSON values if you really need to.
 
 Below is an example of using the data source. The output of `whoami` is stored in a JSON object for the key `user`
 
@@ -107,50 +114,71 @@ Resources are a bit more complicated. At a minimum, you must implement the `CREA
 
 * If you choose not to implement `UPDATE`, then if a change occurs that would trigger an update, the resource will be instead be destroyed and then recreated - same as `ForceNew`. For many applications this is not a problem.
 
-I suggest starting off with just `CREATE` and `DELETE` and then implementing `READ` and `UPDATE` only if you really need it. If you choose to implement `READ`, then you must output the state in the form of a properly formatted JSON, and you should not output the state in either the create or update scripts (otherwise it will be overridden). See the examples in the test folder for how to do each of these.
+I suggest starting off with just `CREATE` and `DELETE` and then implementing `READ` and `UPDATE` as needed. If you choose to implement `READ`, then you must output the state in the form of a properly formatted JSON, it should not alter the resource it is reading, and you should not output the state in either the create or update scripts (otherwise it will be overridden). See the examples in the test folder for how to do each of these.
 
 A complete example that uses all four lifecycle commands is shown below:
+```
+variable "oauth_token" {
+	type = string
+}
 
-	resource "shell_script" "test" {
-		lifecycle_commands {
-			# i like to have scripts be in separate files if they are non-trivial
-			create = file("${path.module}/scripts/create.sh")
-			read   = file("${path.module}/scripts/read.sh")
-			update = file("${path.module}/scripts/update.sh")
-			delete = file("${path.module}/scripts/delete.sh")
-		}
+provider "shell" {
+	environment = {
+		GO_PATH = "/Users/Admin/go"
+	}
+	sensitive_environment = {
+		OAUTH_TOKEN = var.oauth_token
+	}
+}
 
-		# sets current working directory.
-		working_directory = path.module
-
-		# sets environment variables
-		environment = {
-			HELLO = "world"
-		}
-
-		# same as environment variables but won't be printed in logs or state
-		sensitive_environment = {
-			AWS_ACCESS_KEY_ID = var.aws_access_key
-		}
-
-		# triggers a force new update, like for null_resource
-		triggers = {
-			when_value_changed = var.some_value
-		}
+resource "shell_script" "github_repository" {
+	lifecycle_commands {
+		# I suggest having these command be as separate files if they are non-trivial
+		create = file("${path.module}/scripts/create.sh")
+		read   = file("${path.module}/scripts/read.sh")
+		update = file("${path.module}/scripts/update.sh")
+		delete = file("${path.module}/scripts/delete.sh")
 	}
 
-	output "id" {
-		value = shell_script.test.output["id"]
+	environment = {
+		//changes to one of these will trigger an update
+		NAME        = "HELLO-WORLD"
+		DESCRIPTION = "description"
 	}
+
+	
+	/*sensitive environment variables are exactly the
+	same as environment variables except they don't
+	show up in log files */
+
+	sensitive_environment = {
+		USERNAME = var.username
+		PASSWORD = var.password
+	}
+
+	# sets current working directory.
+	working_directory = path.module
+
+	# triggers a force new update, like null_resource
+	triggers = {
+		when_value_changed = var.some_value
+	}
+}
+
+output "id" {
+	value = shell_script.github_repository.output["id"]
+}
+```
 
 Stdout and stderr stream to log files. You can get this by setting:
 
 ```
-export TF_LOG=debug
+export TF_LOG=1
 ```
+**Note:** if you are using sensitive_environment to set sensitive environment variables, these values won't show up in the logs
 
 ## Testing
-If you wish to run automated tests:
+To run automated tests:
 
 ```sh
 $ make test

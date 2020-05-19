@@ -4,8 +4,6 @@ import (
 	"log"
 	"reflect"
 
-	"strings"
-
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/rs/xid"
 )
@@ -107,8 +105,9 @@ func create(d *schema.ResourceData, meta interface{}, stack []Action) error {
 	command := c["create"].(string)
 	client := meta.(*Client)
 	envVariables := getEnvironmentVariables(client, d)
-	environment := flattenEnvironmentVariables(envVariables)
-	sensitiveEnvironment := flattenEnvironmentVariables(d.Get("sensitive_environment"))
+	environment := formatEnvironmentVariables(envVariables)
+	sensitiveEnvVariables := getSensitiveEnvironmentVariables(client, d)
+	sensitiveEnvironment := formatEnvironmentVariables(sensitiveEnvVariables)
 
 	workingDirectory := d.Get("working_directory").(string)
 	d.MarkNewResource()
@@ -154,8 +153,9 @@ func read(d *schema.ResourceData, meta interface{}, stack []Action) error {
 
 	client := meta.(*Client)
 	envVariables := getEnvironmentVariables(client, d)
-	environment := flattenEnvironmentVariables(envVariables)
-	sensitiveEnvironment := flattenEnvironmentVariables(d.Get("sensitive_environment"))
+	environment := formatEnvironmentVariables(envVariables)
+	sensitiveEnvVariables := getSensitiveEnvironmentVariables(client, d)
+	sensitiveEnvironment := formatEnvironmentVariables(sensitiveEnvVariables)
 	workingDirectory := d.Get("working_directory").(string)
 	previousOutput := expandOutput(d.Get("output"))
 
@@ -211,8 +211,9 @@ func update(d *schema.ResourceData, meta interface{}, stack []Action) error {
 
 	client := meta.(*Client)
 	envVariables := getEnvironmentVariables(client, d)
-	environment := flattenEnvironmentVariables(envVariables)
-	sensitiveEnvironment := flattenEnvironmentVariables(d.Get("sensitive_environment"))
+	environment := formatEnvironmentVariables(envVariables)
+	sensitiveEnvVariables := getSensitiveEnvironmentVariables(client, d)
+	sensitiveEnvironment := formatEnvironmentVariables(sensitiveEnvVariables)
 	workingDirectory := d.Get("working_directory").(string)
 	previousOutput := expandOutput(d.Get("output"))
 
@@ -250,8 +251,9 @@ func delete(d *schema.ResourceData, meta interface{}, stack []Action) error {
 
 	client := meta.(*Client)
 	envVariables := getEnvironmentVariables(client, d)
-	environment := flattenEnvironmentVariables(envVariables)
-	sensitiveEnvironment := flattenEnvironmentVariables(d.Get("sensitive_environment"))
+	environment := formatEnvironmentVariables(envVariables)
+	sensitiveEnvVariables := getSensitiveEnvironmentVariables(client, d)
+	sensitiveEnvironment := formatEnvironmentVariables(sensitiveEnvVariables)
 	workingDirectory := d.Get("working_directory").(string)
 	previousOutput := expandOutput(d.Get("output"))
 
@@ -296,7 +298,7 @@ func expandOutput(o interface{}) map[string]string {
 	return output
 }
 
-func flattenEnvironmentVariables(ev interface{}) []string {
+func formatEnvironmentVariables(ev interface{}) []string {
 	var envList []string
 	envMap := ev.(map[string]interface{})
 	if envMap != nil {
@@ -307,13 +309,28 @@ func flattenEnvironmentVariables(ev interface{}) []string {
 	return envList
 }
 
-func expandEnvironmentVariables(envList []string) map[string]string {
-	envMap := make(map[string]string)
-	for _, v := range envList {
-		parts := strings.Split(v, "=")
-		key := parts[0]
-		value := parts[1]
-		envMap[key] = value
+func getEnvironmentVariables(client *Client, d *schema.ResourceData) map[string]interface{} {
+	variables := make(map[string]interface{})
+	resEnv := d.Get("environment").(map[string]interface{})
+	for k, v := range client.config.Environment {
+		variables[k] = v
 	}
-	return envMap
+	for k, v := range resEnv {
+		variables[k] = v
+	}
+
+	return variables
+}
+
+func getSensitiveEnvironmentVariables(client *Client, d *schema.ResourceData) map[string]interface{} {
+	variables := make(map[string]interface{})
+	resEnv := d.Get("sensitive_environment").(map[string]interface{})
+	for k, v := range client.config.SensitiveEnvironment {
+		variables[k] = v
+	}
+	for k, v := range resEnv {
+		variables[k] = v
+	}
+
+	return variables
 }

@@ -4,14 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/tidwall/gjson"
 )
 
@@ -98,9 +96,7 @@ func runCommand(c *CommandConfig) (map[string]string, error) {
 	pwStderr.Close()
 
 	stdOutput := <-stdoutDoneCh
-	stdOutput = sanitizeString(stdOutput, secretValues)
 	stdError := <-stderrDoneCh
-	stdError = sanitizeString(stdError, secretValues)
 	close(logCh)
 
 	// If the script exited with a non-zero code then send the error up to Terraform
@@ -111,13 +107,13 @@ func runCommand(c *CommandConfig) (map[string]string, error) {
 	log.Printf("-------------------------")
 	log.Printf("[DEBUG] Command execution completed:")
 	log.Printf("-------------------------")
-	o := getOutputMap(stdOutput)
+	o := getOutputMap(stdOutput, secretValues)
 	return o, nil
 }
 
-func parseJSON(s string) (map[string]string, error) {
+func parseJSON(s string, secretValues []string) (map[string]string, error) {
 	if !gjson.Valid(s) {
-		return nil, fmt.Errorf("Invalid JSON: %s", s)
+		return nil, fmt.Errorf("Invalid JSON: %s", sanitizeString(s, secretValues))
 	}
 	output := make(map[string]string)
 	result := gjson.Parse(s)
@@ -128,7 +124,7 @@ func parseJSON(s string) (map[string]string, error) {
 	return output, nil
 }
 
-func getOutputMap(s string) map[string]string {
+func getOutputMap(s string, secretValues []string) map[string]string {
 	//Find all matches of "{(.*)/g" in output
 	var matches []string
 	substring := s
@@ -147,7 +143,7 @@ func getOutputMap(s string) map[string]string {
 	var err error
 	for i := range matches {
 		match := matches[len(matches)-1-i]
-		m, err = parseJSON(match)
+		m, err = parseJSON(match, secretValues)
 		if err == nil {
 			//match found
 			break
@@ -155,7 +151,7 @@ func getOutputMap(s string) map[string]string {
 	}
 
 	if m == nil {
-		log.Printf("[DEBUG] no valid JSON strings found at end of output: \n%s", s)
+		log.Printf("[DEBUG] no valid JSON strings found at end of output: \n%s", sanitizeString(s, secretValues))
 		return nil
 	}
 
@@ -163,29 +159,13 @@ func getOutputMap(s string) map[string]string {
 	return m
 }
 
-func readFile(r io.Reader) string {
-	const maxBufSize = 8 * 1024
-	buffer := new(bytes.Buffer)
-	for {
-		tmpdata := make([]byte, maxBufSize)
-		bytecount, _ := r.Read(tmpdata)
-		if bytecount == 0 {
-			break
-		}
-		buffer.Write(tmpdata)
+func expandEnvironmentVariables(envList []string) map[string]string {
+	envMap := make(map[string]string)
+	for _, v := range envList {
+		parts := strings.Split(v, "=")
+		key := parts[0]
+		value := parts[1]
+		envMap[key] = value
 	}
-	return buffer.String()
-}
-
-func getEnvironmentVariables(client *Client, d *schema.ResourceData) map[string]interface{} {
-	variables := make(map[string]interface{})
-	resEnv := d.Get("environment").(map[string]interface{})
-	for k, v := range client.config.Environment {
-		variables[k] = v
-	}
-	for k, v := range resEnv {
-		variables[k] = v
-	}
-
-	return variables
+	return envMap
 }

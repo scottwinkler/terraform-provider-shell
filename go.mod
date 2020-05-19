@@ -30,6 +30,7 @@ require (
 	github.com/packer-community/winrmcp v0.0.0-20180921211025-c76d91c1e7db // indirect
 	github.com/rs/xid v1.2.1
 	github.com/ryanuber/columnize v2.1.0+incompatible // indirect
+	github.com/stretchr/testify v1.4.0
 	github.com/terraform-providers/terraform-provider-aws v1.60.0 // indirect
 	github.com/terraform-providers/terraform-provider-openstack v1.26.0 // indirect
 	github.com/tidwall/gjson v1.6.0
