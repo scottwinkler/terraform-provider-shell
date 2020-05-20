@@ -39,6 +39,14 @@ func dataSourceShellScript() *schema.Resource {
 				Elem:      schema.TypeString,
 				Sensitive: true,
 			},
+			"interpreter": {
+				Type:     schema.TypeList,
+				Optional: true,
+				ForceNew: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
 			"working_directory": {
 				Type:     schema.TypeString,
 				Optional: true,
@@ -66,6 +74,7 @@ func dataSourceShellScriptRead(d *schema.ResourceData, meta interface{}) error {
 	environment := formatEnvironmentVariables(envVariables)
 	sensitiveEnvVariables := getSensitiveEnvironmentVariables(client, d)
 	sensitiveEnvironment := formatEnvironmentVariables(sensitiveEnvVariables)
+	interpreter := getInterpreter(client, d)
 	workingDirectory := d.Get("working_directory").(string)
 
 	//we don't care about previous output for data sources
@@ -76,6 +85,7 @@ func dataSourceShellScriptRead(d *schema.ResourceData, meta interface{}) error {
 		Environment:          environment,
 		SensitiveEnvironment: sensitiveEnvironment,
 		WorkingDirectory:     workingDirectory,
+		Interpreter:          interpreter,
 		Action:               ActionRead,
 		PreviousOutput:       previousOutput,
 	}

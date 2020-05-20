@@ -3,6 +3,7 @@ package shell
 import (
 	"log"
 	"reflect"
+	"runtime"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/rs/xid"
@@ -14,6 +15,9 @@ func resourceShellScript() *schema.Resource {
 		Delete: resourceShellScriptDelete,
 		Read:   resourceShellScriptRead,
 		Update: resourceShellScriptUpdate,
+		Importer: &schema.ResourceImporter{
+			State: schema.ImportStatePassthrough,
+		},
 		Schema: map[string]*schema.Schema{
 			"lifecycle_commands": {
 				Type:     schema.TypeList,
@@ -58,6 +62,14 @@ func resourceShellScript() *schema.Resource {
 				Optional:  true,
 				Elem:      schema.TypeString,
 				Sensitive: true,
+			},
+			"interpreter": {
+				Type:     schema.TypeList,
+				Optional: true,
+				ForceNew: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
 			},
 			"working_directory": {
 				Type:     schema.TypeString,
@@ -108,14 +120,16 @@ func create(d *schema.ResourceData, meta interface{}, stack []Action) error {
 	environment := formatEnvironmentVariables(envVariables)
 	sensitiveEnvVariables := getSensitiveEnvironmentVariables(client, d)
 	sensitiveEnvironment := formatEnvironmentVariables(sensitiveEnvVariables)
-
+	interpreter := getInterpreter(client, d)
 	workingDirectory := d.Get("working_directory").(string)
 	d.MarkNewResource()
+
 	commandConfig := &CommandConfig{
 		Command:              command,
 		Environment:          environment,
 		SensitiveEnvironment: sensitiveEnvironment,
 		WorkingDirectory:     workingDirectory,
+		Interpreter:          interpreter,
 		Action:               ActionCreate,
 	}
 	output, err := runCommand(commandConfig)
@@ -156,6 +170,7 @@ func read(d *schema.ResourceData, meta interface{}, stack []Action) error {
 	environment := formatEnvironmentVariables(envVariables)
 	sensitiveEnvVariables := getSensitiveEnvironmentVariables(client, d)
 	sensitiveEnvironment := formatEnvironmentVariables(sensitiveEnvVariables)
+	interpreter := getInterpreter(client, d)
 	workingDirectory := d.Get("working_directory").(string)
 	previousOutput := expandOutput(d.Get("output"))
 
@@ -164,6 +179,7 @@ func read(d *schema.ResourceData, meta interface{}, stack []Action) error {
 		Environment:          environment,
 		SensitiveEnvironment: sensitiveEnvironment,
 		WorkingDirectory:     workingDirectory,
+		Interpreter:          interpreter,
 		Action:               ActionRead,
 		PreviousOutput:       previousOutput,
 	}
@@ -214,6 +230,7 @@ func update(d *schema.ResourceData, meta interface{}, stack []Action) error {
 	environment := formatEnvironmentVariables(envVariables)
 	sensitiveEnvVariables := getSensitiveEnvironmentVariables(client, d)
 	sensitiveEnvironment := formatEnvironmentVariables(sensitiveEnvVariables)
+	interpreter := getInterpreter(client, d)
 	workingDirectory := d.Get("working_directory").(string)
 	previousOutput := expandOutput(d.Get("output"))
 
@@ -222,6 +239,7 @@ func update(d *schema.ResourceData, meta interface{}, stack []Action) error {
 		Environment:          environment,
 		SensitiveEnvironment: sensitiveEnvironment,
 		WorkingDirectory:     workingDirectory,
+		Interpreter:          interpreter,
 		Action:               ActionDelete,
 		PreviousOutput:       previousOutput,
 	}
@@ -254,6 +272,7 @@ func delete(d *schema.ResourceData, meta interface{}, stack []Action) error {
 	environment := formatEnvironmentVariables(envVariables)
 	sensitiveEnvVariables := getSensitiveEnvironmentVariables(client, d)
 	sensitiveEnvironment := formatEnvironmentVariables(sensitiveEnvVariables)
+	interpreter := getInterpreter(client, d)
 	workingDirectory := d.Get("working_directory").(string)
 	previousOutput := expandOutput(d.Get("output"))
 
@@ -262,6 +281,7 @@ func delete(d *schema.ResourceData, meta interface{}, stack []Action) error {
 		Environment:          environment,
 		SensitiveEnvironment: sensitiveEnvironment,
 		WorkingDirectory:     workingDirectory,
+		Interpreter:          interpreter,
 		Action:               ActionDelete,
 		PreviousOutput:       previousOutput,
 	}
@@ -320,6 +340,41 @@ func getEnvironmentVariables(client *Client, d *schema.ResourceData) map[string]
 	}
 
 	return variables
+}
+
+func getInterpreter(client *Client, d *schema.ResourceData) []string {
+	var interpreter []string
+
+	//use provider interpreter if set
+	var providerInterpreter []string
+	for _, v := range client.config.Interpreter {
+		providerInterpreter = append(providerInterpreter, v.(string))
+	}
+	interpreter = providerInterpreter
+	log.Printf("[DEBUG] provider interpreter\n %v", interpreter)
+	//override provider supplied interpreter with resource interpreter if set
+	var resourceInterpreter []string
+	if ir, ok := d.GetOk("interpreter"); ok {
+		for _, v := range ir.([]interface{}) {
+			resourceInterpreter = append(resourceInterpreter, v.(string))
+		}
+		interpreter = resourceInterpreter
+	}
+	log.Printf("[DEBUG] resource interpreter\n %v", interpreter)
+	//use default interpreter if none provided
+	if interpreter == nil {
+		var shell, flag string
+		if runtime.GOOS == "windows" {
+			shell = "cmd"
+			flag = "/C"
+		} else {
+			shell = "/bin/sh"
+			flag = "-c"
+		}
+		interpreter = []string{shell, flag}
+	}
+	log.Printf("[DEBUG] interpreter\n %v", interpreter)
+	return interpreter
 }
 
 func getSensitiveEnvironmentVariables(client *Client, d *schema.ResourceData) map[string]interface{} {

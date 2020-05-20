@@ -32,16 +32,25 @@ $ make build
 To use this plugin, go to releases and download the binary for your specific OS and architecture. You can install the plugin by either putting it in your `~/.terraform/plugins` folder or in your terraform workspace by performing a `terraform init`.
 
 ## Configuring the Provider
-The provider can be configured with option `environment` and `sensitive_environment` attributes. If these are set, then they will be used to configure all resources which rely on them (without triggering a force new update!)
+The provider can be configured with optional `environment` and `sensitive_environment` attributes. If these are set, then they will be used to configure all resources which rely on them (without triggering a force new update!)
 
 ```
 provider "shell" {
 	environment = {
-		FOO = "bar"
+		AWS_ACCESS_KEY     = var.access_key
+		AWS_DEFAULT_REGION = var.region
 	}
 	sensitive_environment = {
-		SECRET_FOO = var.secret_foo
+		AWS_SECRET_ACCESS_KEY = var.secret_key
 	}
+}
+```
+
+Additionally, you can configure the provider with an optional `interpreter` flag which will set the interpreter for all resources. If you do not specify this, then the default shell for your machine will be used.
+
+```
+provider "shell" {
+	interpreter = ["/bin/bash", "-c"]
 }
 ```
 
@@ -129,11 +138,12 @@ provider "shell" {
 	sensitive_environment = {
 		OAUTH_TOKEN = var.oauth_token
 	}
+	interpreter = ["/bin/sh", "-c"]
 }
 
 resource "shell_script" "github_repository" {
 	lifecycle_commands {
-		# I suggest having these command be as separate files if they are non-trivial
+		//I suggest having these command be as separate files if they are non-trivial
 		create = file("${path.module}/scripts/create.sh")
 		read   = file("${path.module}/scripts/read.sh")
 		update = file("${path.module}/scripts/update.sh")
@@ -147,19 +157,23 @@ resource "shell_script" "github_repository" {
 	}
 
 	
-	/*sensitive environment variables are exactly the
-	same as environment variables except they don't
-	show up in log files */
-
+	//sensitive environment variables are exactly the
+	//same as environment variables except they don't
+	//show up in log files
 	sensitive_environment = {
 		USERNAME = var.username
 		PASSWORD = var.password
 	}
 
-	# sets current working directory.
+	//this overrides the provider supplied interpreter
+	//if you do not specify this then the default for your
+	//machine will be used (/bin/sh for linux/mac and cmd for windows)
+	interpreter = ["/bin/bash", "-c"]
+
+	//sets current working directory
 	working_directory = path.module
 
-	# triggers a force new update, like null_resource
+	//triggers a force new update if value changes, like null_resource
 	triggers = {
 		when_value_changed = var.some_value
 	}
