@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"runtime"
 	"strings"
 
 	"github.com/tidwall/gjson"
@@ -18,6 +17,7 @@ type CommandConfig struct {
 	Command              string
 	Environment          []string
 	SensitiveEnvironment []string
+	Interpreter          []string
 	WorkingDirectory     string
 	Action               Action
 	PreviousOutput       map[string]string
@@ -27,18 +27,10 @@ func runCommand(c *CommandConfig) (map[string]string, error) {
 	shellMutexKV.Lock(shellScriptMutexKey)
 	defer shellMutexKV.Unlock(shellScriptMutexKey)
 
-	// Execute the command using a shell
-	var shell, flag string
-	if runtime.GOOS == "windows" {
-		shell = "cmd"
-		flag = "/C"
-	} else {
-		shell = "/bin/sh"
-		flag = "-c"
-	}
-
 	// Setup the command
-	cmd := exec.Command(shell, flag, c.Command)
+	shell := c.Interpreter[0]
+	flags := append(c.Interpreter[1:], c.Command)
+	cmd := exec.Command(shell, flags...)
 	if c.Action != ActionCreate {
 		input, _ := json.Marshal(c.PreviousOutput)
 		stdin := bytes.NewReader(input)
@@ -58,7 +50,7 @@ func runCommand(c *CommandConfig) (map[string]string, error) {
 	cmd.Dir = c.WorkingDirectory
 
 	// Output what we're about to run
-	log.Printf("[DEBUG] shell script going to execute: %s %s", shell, flag)
+	log.Printf("[DEBUG] shell script going to execute: %s %s", shell, flags)
 	commandLines := strings.Split(c.Command, "\n")
 	for _, line := range commandLines {
 		log.Printf("   %s", line)
@@ -155,7 +147,12 @@ func getOutputMap(s string, secretValues []string) map[string]string {
 		return nil
 	}
 
-	log.Printf("[DEBUG] Valid map[string]string:\n %v", m)
+	// be extra careful to not print anything we shouldn't (even if it shows up in state file anyways)
+	sanitizedM := make(map[string]string)
+	for k, v := range m {
+		sanitizedM[k] = sanitizeString(v, secretValues)
+	}
+	log.Printf("[DEBUG] Valid map[string]string:\n %v", sanitizedM)
 	return m
 }
 

@@ -4,6 +4,7 @@ package shell
 type Config struct {
 	Environment          map[string]interface{}
 	SensitiveEnvironment map[string]interface{}
+	Interpreter          []interface{}
 }
 
 //Client is the client itself. Since we already have access to the shell no real provisioning needs to be done

@@ -18,9 +18,17 @@ func Provider() terraform.ResourceProvider {
 				Elem:     schema.TypeString,
 			},
 			"sensitive_environment": {
-				Type:     schema.TypeMap,
+				Type:      schema.TypeMap,
+				Optional:  true,
+				Sensitive: true,
+				Elem:      schema.TypeString,
+			},
+			"interpreter": {
+				Type:     schema.TypeList,
 				Optional: true,
-				Elem:     schema.TypeString,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
 			},
 		},
 
@@ -36,9 +44,22 @@ func Provider() terraform.ResourceProvider {
 }
 
 func providerConfigure(d *schema.ResourceData) (interface{}, error) {
+	var environment map[string]interface{}
+	if v, ok := d.GetOk("environment"); ok {
+		environment = v.(map[string]interface{})
+	}
+	var sensitiveEnvironment map[string]interface{}
+	if v, ok := d.GetOk("sensitive_environment"); ok {
+		sensitiveEnvironment = v.(map[string]interface{})
+	}
+	var interpreter []interface{}
+	if v, ok := d.GetOk("interpreter"); ok {
+		interpreter = v.([]interface{})
+	}
 	config := Config{
-		Environment:          d.Get("environment").(map[string]interface{}),
-		SensitiveEnvironment: d.Get("sensitive_environment").(map[string]interface{}),
+		Environment:          environment,
+		SensitiveEnvironment: sensitiveEnvironment,
+		Interpreter:          interpreter,
 	}
 	return config.Client()
 }
