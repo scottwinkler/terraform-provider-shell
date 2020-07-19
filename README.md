@@ -46,14 +46,14 @@ provider "shell" {
 }
 ```
 
-Additionally, you can configure the provider with an optional `interpreter` flag which will set the interpreter for all resources. If you do not specify this, then the default shell for your machine will be used.
+Additionally, you can configure the provider with an optional `interpreter` and `enable_parallelism` flags. If you do not specify an interpreter, then the default shell for your machine will be used. Meanwhile, `enable_parallelism` defaults to false but can be turned on if you want to speed things up.
 
 ```
 provider "shell" {
 	interpreter = ["/bin/bash", "-c"]
+	enable_parallelism = true
 }
 ```
-
 ## Data Sources
 The simplest example is the data source which implements only Read(). Any output to stdout or stderr will show up in the logs, but to save state, you must output a JSON payload to stdout. The last JSON object printed to stdout will be taken to be the output state. The JSON can be a complex nested JSON, but will be flattened into a `map[string]string`. The reason for this is that your JSON payload variables can be accessed from the output map of this resource and used like a normal terraform output, so the value must be a string. You can use the built-in jsondecode() function to read nested JSON values if you really need to.
 
@@ -139,6 +139,7 @@ provider "shell" {
 		OAUTH_TOKEN = var.oauth_token
 	}
 	interpreter = ["/bin/sh", "-c"]
+	enable_parallelism = false
 }
 
 resource "shell_script" "github_repository" {

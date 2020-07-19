@@ -21,11 +21,16 @@ type CommandConfig struct {
 	WorkingDirectory     string
 	Action               Action
 	PreviousOutput       map[string]string
+	EnableParallelism    bool
 }
 
 func runCommand(c *CommandConfig) (map[string]string, error) {
-	shellMutexKV.Lock(shellScriptMutexKey)
-	defer shellMutexKV.Unlock(shellScriptMutexKey)
+	if !c.EnableParallelism {
+		log.Printf("[DEBUG] parallelism disabled, locking")
+		shellMutexKV.Lock(shellScriptMutexKey)
+		defer shellMutexKV.Unlock(shellScriptMutexKey)
+		log.Printf("[DEBUG] lock acquired")
+	}
 
 	// Setup the command
 	shell := c.Interpreter[0]
