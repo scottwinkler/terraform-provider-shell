@@ -30,6 +30,11 @@ func Provider() terraform.ResourceProvider {
 					Type: schema.TypeString,
 				},
 			},
+			"enable_parallelism": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  false,
+			},
 		},
 
 		DataSourcesMap: map[string]*schema.Resource{
@@ -56,10 +61,13 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 	if v, ok := d.GetOk("interpreter"); ok {
 		interpreter = v.([]interface{})
 	}
+	enableParallelism := d.Get("enable_parallelism").(bool)
+
 	config := Config{
 		Environment:          environment,
 		SensitiveEnvironment: sensitiveEnvironment,
 		Interpreter:          interpreter,
+		EnableParallelism:    enableParallelism,
 	}
 	return config.Client()
 }

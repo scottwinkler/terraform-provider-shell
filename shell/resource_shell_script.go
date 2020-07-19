@@ -122,6 +122,7 @@ func create(d *schema.ResourceData, meta interface{}, stack []Action) error {
 	sensitiveEnvironment := formatEnvironmentVariables(sensitiveEnvVariables)
 	interpreter := getInterpreter(client, d)
 	workingDirectory := d.Get("working_directory").(string)
+	enableParallelism := client.config.EnableParallelism
 	d.MarkNewResource()
 
 	commandConfig := &CommandConfig{
@@ -131,6 +132,7 @@ func create(d *schema.ResourceData, meta interface{}, stack []Action) error {
 		WorkingDirectory:     workingDirectory,
 		Interpreter:          interpreter,
 		Action:               ActionCreate,
+		EnableParallelism:    enableParallelism,
 	}
 	output, err := runCommand(commandConfig)
 	if err != nil {
@@ -147,9 +149,13 @@ func create(d *schema.ResourceData, meta interface{}, stack []Action) error {
 		d.Set("output", output)
 	}
 
-	//create random uuid for the id
-	id := xid.New().String()
-	d.SetId(id)
+	//create random uuid for the id only if output has been set
+	savedOutput := d.Get("output")
+	if savedOutput != nil {
+		id := xid.New().String()
+		d.SetId(id)
+	}
+
 	return nil
 }
 
@@ -173,6 +179,7 @@ func read(d *schema.ResourceData, meta interface{}, stack []Action) error {
 	interpreter := getInterpreter(client, d)
 	workingDirectory := d.Get("working_directory").(string)
 	previousOutput := expandOutput(d.Get("output"))
+	enableParallelism := client.config.EnableParallelism
 
 	commandConfig := &CommandConfig{
 		Command:              command,
@@ -182,6 +189,7 @@ func read(d *schema.ResourceData, meta interface{}, stack []Action) error {
 		Interpreter:          interpreter,
 		Action:               ActionRead,
 		PreviousOutput:       previousOutput,
+		EnableParallelism:    enableParallelism,
 	}
 	output, err := runCommand(commandConfig)
 	if err != nil {
@@ -233,6 +241,7 @@ func update(d *schema.ResourceData, meta interface{}, stack []Action) error {
 	interpreter := getInterpreter(client, d)
 	workingDirectory := d.Get("working_directory").(string)
 	previousOutput := expandOutput(d.Get("output"))
+	enableParallelism := client.config.EnableParallelism
 
 	commandConfig := &CommandConfig{
 		Command:              command,
@@ -242,6 +251,7 @@ func update(d *schema.ResourceData, meta interface{}, stack []Action) error {
 		Interpreter:          interpreter,
 		Action:               ActionDelete,
 		PreviousOutput:       previousOutput,
+		EnableParallelism:    enableParallelism,
 	}
 	output, err := runCommand(commandConfig)
 	if err != nil {
@@ -275,6 +285,7 @@ func delete(d *schema.ResourceData, meta interface{}, stack []Action) error {
 	interpreter := getInterpreter(client, d)
 	workingDirectory := d.Get("working_directory").(string)
 	previousOutput := expandOutput(d.Get("output"))
+	enableParallelism := client.config.EnableParallelism
 
 	commandConfig := &CommandConfig{
 		Command:              command,
@@ -284,6 +295,7 @@ func delete(d *schema.ResourceData, meta interface{}, stack []Action) error {
 		Interpreter:          interpreter,
 		Action:               ActionDelete,
 		PreviousOutput:       previousOutput,
+		EnableParallelism:    enableParallelism,
 	}
 	_, err := runCommand(commandConfig)
 	if err != nil {
