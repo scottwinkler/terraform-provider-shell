@@ -15,14 +15,12 @@ func dataSourceShellScript() *schema.Resource {
 			"lifecycle_commands": {
 				Type:     schema.TypeList,
 				Required: true,
-				ForceNew: true,
 				MaxItems: 1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"read": {
 							Type:     schema.TypeString,
 							Required: true,
-							ForceNew: true,
 						},
 					},
 				},
@@ -30,7 +28,6 @@ func dataSourceShellScript() *schema.Resource {
 			"environment": {
 				Type:     schema.TypeMap,
 				Optional: true,
-				ForceNew: true,
 				Elem:     schema.TypeString,
 			},
 			"sensitive_environment": {
@@ -42,7 +39,6 @@ func dataSourceShellScript() *schema.Resource {
 			"interpreter": {
 				Type:     schema.TypeList,
 				Optional: true,
-				ForceNew: true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
@@ -50,7 +46,6 @@ func dataSourceShellScript() *schema.Resource {
 			"working_directory": {
 				Type:     schema.TypeString,
 				Optional: true,
-				ForceNew: true,
 				Default:  ".",
 			},
 			"output": {

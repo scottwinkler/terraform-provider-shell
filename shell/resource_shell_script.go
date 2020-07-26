@@ -22,14 +22,12 @@ func resourceShellScript() *schema.Resource {
 			"lifecycle_commands": {
 				Type:     schema.TypeList,
 				Required: true,
-				ForceNew: true,
 				MaxItems: 1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"create": {
 							Type:     schema.TypeString,
 							Required: true,
-							ForceNew: true,
 						},
 						"update": {
 							Type:     schema.TypeString,
@@ -38,7 +36,6 @@ func resourceShellScript() *schema.Resource {
 						"read": {
 							Type:     schema.TypeString,
 							Optional: true,
-							ForceNew: true,
 						},
 						"delete": {
 							Type:     schema.TypeString,
@@ -66,7 +63,6 @@ func resourceShellScript() *schema.Resource {
 			"interpreter": {
 				Type:     schema.TypeList,
 				Optional: true,
-				ForceNew: true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
@@ -74,7 +70,6 @@ func resourceShellScript() *schema.Resource {
 			"working_directory": {
 				Type:     schema.TypeString,
 				Optional: true,
-				ForceNew: true,
 				Default:  ".",
 			},
 			"output": {
