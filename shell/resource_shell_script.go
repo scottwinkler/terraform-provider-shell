@@ -87,6 +87,11 @@ func resourceShellScript() *schema.Resource {
 				Optional: true,
 				Default:  false,
 			},
+			"error_tag": {
+				Type:     schema.TypeString,
+				Optional: true,
+				Default:  "",
+			},
 		},
 	}
 }
@@ -123,6 +128,7 @@ func create(d *schema.ResourceData, meta interface{}, stack []Action) error {
 	interpreter := getInterpreter(client, d)
 	workingDirectory := d.Get("working_directory").(string)
 	enableParallelism := client.config.EnableParallelism
+	errorTag := d.Get("error_tag").(string)
 	d.MarkNewResource()
 
 	commandConfig := &CommandConfig{
@@ -133,6 +139,7 @@ func create(d *schema.ResourceData, meta interface{}, stack []Action) error {
 		Interpreter:          interpreter,
 		Action:               ActionCreate,
 		EnableParallelism:    enableParallelism,
+		ErrorTag:             errorTag,
 	}
 	output, err := runCommand(commandConfig)
 	if err != nil {
@@ -180,6 +187,7 @@ func read(d *schema.ResourceData, meta interface{}, stack []Action) error {
 	workingDirectory := d.Get("working_directory").(string)
 	previousOutput := expandOutput(d.Get("output"))
 	enableParallelism := client.config.EnableParallelism
+	errorTag := d.Get("error_tag").(string)
 
 	commandConfig := &CommandConfig{
 		Command:              command,
@@ -190,6 +198,7 @@ func read(d *schema.ResourceData, meta interface{}, stack []Action) error {
 		Action:               ActionRead,
 		PreviousOutput:       previousOutput,
 		EnableParallelism:    enableParallelism,
+		ErrorTag:             errorTag,
 	}
 	output, err := runCommand(commandConfig)
 	if err != nil {
@@ -242,6 +251,7 @@ func update(d *schema.ResourceData, meta interface{}, stack []Action) error {
 	workingDirectory := d.Get("working_directory").(string)
 	previousOutput := expandOutput(d.Get("output"))
 	enableParallelism := client.config.EnableParallelism
+	errorTag := d.Get("error_tag").(string)
 
 	commandConfig := &CommandConfig{
 		Command:              command,
@@ -252,6 +262,7 @@ func update(d *schema.ResourceData, meta interface{}, stack []Action) error {
 		Action:               ActionDelete,
 		PreviousOutput:       previousOutput,
 		EnableParallelism:    enableParallelism,
+		ErrorTag:             errorTag,
 	}
 	output, err := runCommand(commandConfig)
 	if err != nil {
@@ -286,6 +297,7 @@ func delete(d *schema.ResourceData, meta interface{}, stack []Action) error {
 	workingDirectory := d.Get("working_directory").(string)
 	previousOutput := expandOutput(d.Get("output"))
 	enableParallelism := client.config.EnableParallelism
+	errorTag := d.Get("error_tag").(string)
 
 	commandConfig := &CommandConfig{
 		Command:              command,
@@ -296,6 +308,7 @@ func delete(d *schema.ResourceData, meta interface{}, stack []Action) error {
 		Action:               ActionDelete,
 		PreviousOutput:       previousOutput,
 		EnableParallelism:    enableParallelism,
+		ErrorTag:             errorTag,
 	}
 	_, err := runCommand(commandConfig)
 	if err != nil {

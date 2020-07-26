@@ -45,6 +45,20 @@ func TestAccShellShellScript_basic_error(t *testing.T) {
 	})
 }
 
+func TestAccShellShellScript_basic_tagged_error(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckShellScriptDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config:             testAccShellScriptConfig_basic_tagged_error(),
+				ExpectNonEmptyPlan: true,
+				ExpectError:        regexp.MustCompile("Tag: testErrorTag"),
+			},
+		},
+	})
+}
+
 func TestAccShellShellScript_create_read_delete(t *testing.T) {
 	resourceName := "shell_script.crd"
 	rString := acctest.RandString(8)
@@ -171,6 +185,26 @@ EOF
 		environment = {
 		  filename= "create_delete.json"
 		}
+	  }
+`)
+}
+
+func testAccShellScriptConfig_basic_tagged_error() string {
+	return fmt.Sprintf(`
+	resource "shell_script" "basic" {
+		lifecycle_commands {
+		  create = <<EOF
+		    echo "Something went wrong!"
+			exit 1
+EOF
+		  delete = "exit 1"
+		}
+
+		environment = {
+		  filename= "create_delete.json"
+		}
+
+		error_tag = "testErrorTag"
 	  }
 `)
 }
