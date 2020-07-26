@@ -22,6 +22,7 @@ type CommandConfig struct {
 	Action               Action
 	PreviousOutput       map[string]string
 	EnableParallelism    bool
+	ErrorTag             string
 }
 
 func runCommand(c *CommandConfig) (map[string]string, error) {
@@ -98,7 +99,11 @@ func runCommand(c *CommandConfig) (map[string]string, error) {
 
 	// If the script exited with a non-zero code then send the error up to Terraform
 	if err != nil {
-		return nil, fmt.Errorf("Error occurred during execution.\n Command: '%s' \n Error: '%s' \n StdOut: \n %s \n StdErr: \n %s", c.Command, err.Error(), stdOutput, stdError)
+		tagLine := ""
+		if c.ErrorTag != "" {
+			tagLine = fmt.Sprintf("Tag: %s\n ", c.ErrorTag)
+		}
+		return nil, fmt.Errorf("Error occurred during execution.\n Command: '%s' \n %sError: '%s' \n StdOut: \n %s \n StdErr: \n %s", c.Command, tagLine, err.Error(), stdOutput, stdError)
 	}
 
 	log.Printf("-------------------------")

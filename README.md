@@ -157,7 +157,7 @@ resource "shell_script" "github_repository" {
 		DESCRIPTION = "description"
 	}
 
-	
+
 	//sensitive environment variables are exactly the
 	//same as environment variables except they don't
 	//show up in log files
@@ -178,6 +178,11 @@ resource "shell_script" "github_repository" {
 	triggers = {
 		when_value_changed = var.some_value
 	}
+
+    //if your shell_script resource is in a module that is instanciated several
+    //times, an error_tag can help you figure out which precise resource is impacted
+    //in case of an error
+    error_tag = "repo for ${var.username}"
 }
 
 output "id" {
@@ -198,4 +203,3 @@ To run automated tests:
 ```sh
 $ make test
 ```
-
