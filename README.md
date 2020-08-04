@@ -1,35 +1,10 @@
-# terraform-provider-shell
-![Go](https://github.com/scottwinkler/terraform-provider-shell/workflows/Go/badge.svg)
-## Introduction
+Terraform Provider Shell
+==================
 This plugin is for wrapping shell scripts to make them fully fledged terraform resources. Note that this is a backdoor into the Terraform runtime. You can do some pretty dangerous things with this and it is up to you to make sure you don't get in trouble.
 
 Since this provider is rather different than most other provider, it is recommended that you at least have some familiarity with the internals of Terraform before attempting to use this provider.
 
 **Note:** many people use this provider for wrapping APIs of resources that are not supported by existing providers. For an example of using this provider to manage a Github repo resource, see `examples/github-repo`
-
-## Requirements
-
--	[Terraform](https://www.terraform.io/downloads.html) 0.12.x
--	[Go](https://golang.org/doc/install) 1.13 (to build the provider plugin)
-
-## Building The Provider
-
-Clone repository to: `$GOPATH/src/github.com/scottwinkler/terraform-provider-shell`
-
-```sh
-$ mkdir -p $GOPATH/src/github.com/scottwinkler; cd $GOPATH/src/github.com/scottwinkler
-$ git clone git@github.com:scottwinkler/terraform-provider-shell
-```
-
-Enter the provider directory and build the provider
-
-```sh
-$ cd $GOPATH/src/github.com/scottwinkler/terraform-provider-shell
-$ make build
-```
-
-## Installing
-To use this plugin, go to releases and download the binary for your specific OS and architecture. You can install the plugin by either putting it in your `~/.terraform/plugins` folder or in your terraform workspace by performing a `terraform init`.
 
 ## Configuring the Provider
 The provider can be configured with optional `environment` and `sensitive_environment` attributes. If these are set, then they will be used to configure all resources which rely on them (without triggering a force new update!)
@@ -53,8 +28,9 @@ provider "shell" {
 	interpreter = ["/bin/bash", "-c"]
 	enable_parallelism = true
 }
-```
-## Data Sources
+Data Sources
+------------
+
 The simplest example is the data source which implements only Read(). Any output to stdout or stderr will show up in the logs, but to save state, you must output a JSON payload to stdout. The last JSON object printed to stdout will be taken to be the output state. The JSON can be a complex nested JSON, but will be flattened into a `map[string]string`. The reason for this is that your JSON payload variables can be accessed from the output map of this resource and used like a normal terraform output, so the value must be a string. You can use the built-in jsondecode() function to read nested JSON values if you really need to.
 
 Below is an example of using the data source. The output of `whoami` is stored in a JSON object for the key `user`
@@ -116,7 +92,9 @@ Outputs:
 weather = SanFrancisco: ⛅️ +54°F
 ```
 
-## Resources
+Resources
+------------
+
 Resources are a bit more complicated. At a minimum, you must implement the `CREATE`, and `DELETE` lifecycle commands. `READ` and `UPDATE` are optional arguments.
 
 * If you choose not to implement the `READ` command, then `CREATE` (and `UPDATE` if you are using it) must output JSON. The local state will not be synced with the actual state, but for many applications that is not a problem.
@@ -192,10 +170,55 @@ export TF_LOG=1
 ```
 **Note:** if you are using sensitive_environment to set sensitive environment variables, these values won't show up in the logs
 
-## Testing
-To run automated tests:
 
+Requirements
+------------
+
+-	[Terraform](https://www.terraform.io/downloads.html) >= 0.12.x
+-	[Go](https://golang.org/doc/install) >= 1.12
+
+Building The Provider
+---------------------
+
+1. Clone the repository
+1. Enter the repository directory
+1. Build the provider using the Go `install` command: 
 ```sh
-$ make test
+$ go install
 ```
 
+Adding Dependencies
+---------------------
+
+This provider uses [Go modules](https://github.com/golang/go/wiki/Modules).
+Please see the Go documentation for the most up to date information about using Go modules.
+
+To add a new dependency `github.com/author/dependency` to your Terraform provider:
+
+```
+go get github.com/author/dependency
+go mod tidy
+```
+
+Then commit the changes to `go.mod` and `go.sum`.
+
+
+Using the provider
+----------------------
+
+Fill this in for each provider
+
+Developing the Provider
+---------------------------
+
+If you wish to work on the provider, you'll first need [Go](http://www.golang.org) installed on your machine (see [Requirements](#requirements) above).
+
+To compile the provider, run `go install`. This will build the provider and put the provider binary in the `$GOPATH/bin` directory.
+
+In order to run the full suite of Acceptance tests, run `make testacc`.
+
+*Note:* Acceptance tests create real resources, and often cost money to run.
+
+```sh
+$ make testacc
+```
