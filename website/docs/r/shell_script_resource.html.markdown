@@ -3,12 +3,12 @@ layout: "shell"
 page_title: "Shell: shell_script"
 sidebar_current: "docs-shell-resource"
 description: |-
-  Shell script external resource
+  Shell script custom resource
 ---
 
 # shell_script
 
-esources are a bit more complicated than data sources. At a minimum, you must implement the `CREATE`, and `DELETE` lifecycle commands. `READ` and `UPDATE` are optional arguments.
+Resources are a bit more complicated than data sources. At a minimum, you must implement the `CREATE`, and `DELETE` lifecycle commands. `READ` and `UPDATE` are optional arguments.
 
 * If you choose not to implement the `READ` command, then `CREATE` (and `UPDATE` if you are using it) must output JSON. The local state will not be synced with the actual state, but for many applications that is not a problem.
 
