@@ -3,7 +3,7 @@ layout: "shell"
 page_title: "Shell: shell_script"
 sidebar_current: "docs-shell-data-source"
 description: |-
-  Shell script external data source
+  Shell script custom data source
 ---
 
 # shell_script
