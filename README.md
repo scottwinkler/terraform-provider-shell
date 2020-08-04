@@ -1,5 +1,7 @@
 Terraform Provider Shell
 ==================
+https://registry.terraform.io/providers/scottwinkler/shell
+
 This plugin is for wrapping shell scripts to make them fully fledged terraform resources. Note that this is a backdoor into the Terraform runtime. You can do some pretty dangerous things with this and it is up to you to make sure you don't get in trouble.
 
 Since this provider is rather different than most other provider, it is recommended that you at least have some familiarity with the internals of Terraform before attempting to use this provider.
