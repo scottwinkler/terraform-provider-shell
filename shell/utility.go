@@ -3,6 +3,7 @@ package shell
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -98,7 +99,17 @@ func runCommand(c *CommandConfig) (map[string]string, error) {
 
 	// If the script exited with a non-zero code then send the error up to Terraform
 	if err != nil {
-		return nil, fmt.Errorf("Error occurred during execution.\n Command: '%s' \n Error: '%s' \n StdOut: \n %s \n StdErr: \n %s", c.Command, err.Error(), stdOutput, stdError)
+		errorS := "Error occured during shell execution.\n"
+		errorS += "Error: \n" + err.Error() + "\n\n"
+		errorS += "Command: \n" + sanitizeString(c.Command, secretValues) + "\n\n"
+		errorS += "StdOut: \n" + sanitizeString(stdOutput, secretValues) + "\n\n"
+		errorS += "StdErr: \n" + sanitizeString(stdError, secretValues) + "\n\n"
+		errorS += fmt.Sprintf("Env: \n%s\n\n", c.Environment)
+		if c.Action != ActionCreate {
+			stdin, _ := json.Marshal(c.PreviousOutput)
+			errorS += fmt.Sprintf("StdIn: \n'%s'\n", stdin)
+		}
+		return nil, errors.New(errorS)
 	}
 
 	log.Printf("-------------------------")
