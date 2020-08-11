@@ -46,6 +46,15 @@ Using the provider
 You can use this provider to make custom external resources and data sources:
 
 ```
+terraform {
+  required_providers {
+    shell = {
+      source = "scottwinkler/shell"
+      version = "1.7.3"
+    }
+  }
+}
+
 variable "oauth_token" {
   type = string
 }
