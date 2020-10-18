@@ -28,13 +28,11 @@ func dataSourceShellScript() *schema.Resource {
 			"environment": {
 				Type:     schema.TypeMap,
 				Optional: true,
-				ForceNew: true,
 				Elem:     schema.TypeString,
 			},
 			"sensitive_environment": {
 				Type:      schema.TypeMap,
 				Optional:  true,
-				ForceNew: true,
 				Elem:      schema.TypeString,
 				Sensitive: true,
 			},
