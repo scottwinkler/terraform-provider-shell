@@ -18,6 +18,7 @@ func resourceShellScript() *schema.Resource {
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
 		},
+		CustomizeDiff: resourceShellScriptCustomizeDiff,
 		Schema: map[string]*schema.Schema{
 			"lifecycle_commands": {
 				Type:     schema.TypeList,
@@ -82,6 +83,11 @@ func resourceShellScript() *schema.Resource {
 				Optional: true,
 				Default:  false,
 			},
+			"read_error": {
+				Type:     schema.TypeString,
+				Optional: true,
+				Default:  "",
+			},
 		},
 	}
 }
@@ -92,7 +98,16 @@ func resourceShellScriptCreate(d *schema.ResourceData, meta interface{}) error {
 }
 
 func resourceShellScriptRead(d *schema.ResourceData, meta interface{}) error {
-	return read(d, meta, []Action{ActionRead})
+	err := read(d, meta, []Action{ActionRead})
+	if err != nil {
+		_ = d.Set("read_error", err.Error())
+	} else {
+		_ = d.Set("read_error", "")
+	}
+
+	// Error could be caused by bugs in the script.
+	// Give user chance to fix the script or continue to recreate the resource
+	return nil
 }
 
 func resourceShellScriptUpdate(d *schema.ResourceData, meta interface{}) error {
@@ -101,6 +116,44 @@ func resourceShellScriptUpdate(d *schema.ResourceData, meta interface{}) error {
 
 func resourceShellScriptDelete(d *schema.ResourceData, meta interface{}) error {
 	return delete(d, meta, []Action{ActionDelete})
+}
+
+func resourceShellScriptCustomizeDiff(d *schema.ResourceDiff, i interface{}) (err error) {
+	if d.Id() == "" {
+		return
+	}
+
+	if d.HasChange("lifecycle_commands") || d.HasChange("interpreter") {
+		return
+	}
+
+	if v, _ := d.GetChange("read_error"); v != nil {
+		if e, _ := v.(string); e != "" {
+			_ = d.ForceNew("read_error") // read error, force recreation
+			return
+		}
+	}
+
+	if _, ok := d.GetOk("lifecycle_commands.0.update"); ok {
+		return // updateable
+	}
+
+	// all the other arguments
+	for _, k := range []string{
+		"environment",
+		"sensitive_environment",
+		"working_directory",
+		"dirty",
+	} {
+		if !d.HasChange(k) {
+			continue
+		}
+		err = d.ForceNew(k)
+		if err != nil {
+			return
+		}
+	}
+	return
 }
 
 func create(d *schema.ResourceData, meta interface{}, stack []Action) error {
@@ -212,21 +265,51 @@ func read(d *schema.ResourceData, meta interface{}, stack []Action) error {
 	return nil
 }
 
+func restoreOldResourceData(rd *schema.ResourceData, except ...string) (err error) {
+	exceptMap := map[string]bool{}
+	for _, k := range except {
+		exceptMap[k] = true
+	}
+	for _, k := range []string{
+		"lifecycle_commands",
+		"triggers",
+
+		"environment",
+		"sensitive_environment",
+		"interpreter",
+		"working_directory",
+		"output",
+
+		"dirty",
+		"read_error",
+	} {
+
+		if exceptMap[k] {
+			continue
+		}
+
+		o, _ := rd.GetChange(k)
+		err = rd.Set(k, o)
+		if err != nil {
+			return
+		}
+	}
+
+	return
+}
+
 func update(d *schema.ResourceData, meta interface{}, stack []Action) error {
+	if d.HasChanges("lifecycle_commands", "interpreter") {
+		_ = restoreOldResourceData(d, "lifecycle_commands", "interpreter", "dirty", "read_error")
+		return nil
+	}
+
 	log.Printf("[DEBUG] Updating shell script resource...")
 	d.Set("dirty", false)
 	printStackTrace(stack)
 	l := d.Get("lifecycle_commands").([]interface{})
 	c := l[0].(map[string]interface{})
 	command := c["update"].(string)
-
-	//if update is not set, then treat it simply as a tainted resource - delete then recreate
-	if len(command) == 0 {
-		stack = append(stack, ActionDelete)
-		delete(d, meta, stack)
-		stack = append(stack, ActionCreate)
-		return create(d, meta, stack)
-	}
 
 	client := meta.(*Client)
 	envVariables := getEnvironmentVariables(client, d)
@@ -250,6 +333,7 @@ func update(d *schema.ResourceData, meta interface{}, stack []Action) error {
 	}
 	output, err := runCommand(commandConfig)
 	if err != nil {
+		_ = restoreOldResourceData(d)
 		return err
 	}
 
@@ -266,6 +350,10 @@ func update(d *schema.ResourceData, meta interface{}, stack []Action) error {
 }
 
 func delete(d *schema.ResourceData, meta interface{}, stack []Action) error {
+	if e, _ := d.Get("read_error").(string); e != "" {
+		return nil
+	}
+
 	log.Printf("[DEBUG] Deleting shell script resource...")
 	printStackTrace(stack)
 	l := d.Get("lifecycle_commands").([]interface{})

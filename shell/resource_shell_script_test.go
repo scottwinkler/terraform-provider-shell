@@ -272,3 +272,176 @@ EOF
 	  }
 `
 }
+
+func TestAccShellShellScript_failedUpdate(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		Providers: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccShellScriptConfig_failedUpdate("value1"),
+				Check:  resource.TestCheckResourceAttr("shell_script.shell_script", "environment.VALUE", "value1"),
+			},
+			{
+				Config:             testAccShellScriptConfig_failedUpdate("value2"),
+				ExpectNonEmptyPlan: true,
+				ExpectError:        regexp.MustCompile("Error occured during shell execution"),
+				Check:              resource.TestCheckResourceAttr("shell_script.shell_script", "environment.VALUE", "value1"),
+			},
+		},
+	})
+}
+
+func testAccShellScriptConfig_failedUpdate(value string) string {
+	return fmt.Sprintf(`
+		resource "shell_script" "shell_script" {
+			lifecycle_commands {
+				create = "echo"
+				read = <<-EOF
+					echo -n '{"test": true}'
+				EOF
+				update = "exit 1"
+				delete = "echo"
+			}
+			environment = {
+				VALUE = "%s"
+			}
+		}
+	`, value)
+}
+
+func testAccCheckNoFiles(files ...string) func(t *terraform.State) error {
+	return func(t *terraform.State) error {
+		for _, f := range files {
+			if _, err := os.Stat(f); err == nil {
+				return fmt.Errorf("'%s' should no longer exist", f)
+			}
+		}
+		return nil
+	}
+}
+
+func TestAccShellShellScript_recreate(t *testing.T) {
+	file1, file2 := "/tmp/some-file-"+acctest.RandString(16), "/tmp/some-file-"+acctest.RandString(16)
+	resource.Test(t, resource.TestCase{
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckNoFiles(file1, file2),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccShellShellScriptConfig_recreate(file1),
+			},
+			{
+				Config: testAccShellShellScriptConfig_recreate(file2),
+			},
+		},
+	})
+}
+func testAccShellShellScriptConfig_recreate(filename string) string {
+	return fmt.Sprintf(`
+		resource "shell_script" "shell_script" {
+			lifecycle_commands {
+				create = <<-EOF
+					echo -n '{"test": true}' > "$FILE"
+				EOF
+				read = <<-EOF
+					cat "$FILE"
+				EOF
+				delete = <<-EOF
+					rm "$FILE"
+				EOF
+			}
+			environment = {
+				FILE = "%s"
+			}
+		}
+	`, filename)
+}
+
+func TestAccShellShellScript_readFailed(t *testing.T) {
+	file := "/tmp/test-file-" + acctest.RandString(16)
+	resource.Test(t, resource.TestCase{
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckNoFiles(file),
+		Steps: []resource.TestStep{
+			{
+				Config:             testAccShellShellScriptConfig_readFailed(file, true),
+				ExpectNonEmptyPlan: true,
+				Check:              resource.TestCheckResourceAttr("shell_script.shell_script", "output.test", "true"),
+			},
+			{
+				Config: testAccShellShellScriptConfig_readFailed(file, false),
+				Check:  resource.TestCheckResourceAttr("shell_script.shell_script", "output.test", "true"),
+			},
+		},
+	})
+}
+func testAccShellShellScriptConfig_readFailed(filename string, bug bool) string {
+	return fmt.Sprintf(`
+		resource "shell_script" "shell_script" {
+			lifecycle_commands {
+				create = <<-EOF
+					echo -n '{"test": true}' > "$FILE"
+				EOF
+				read = <<-EOF
+					{ cat "$FILE"; [ "$BUG" == "true" ] && rm "$FILE" || true ;}
+				EOF
+				delete = <<-EOF
+					rm "$FILE"
+				EOF
+			}
+			environment = {
+				FILE = "%s"
+				BUG = "%t"
+			}
+		}
+	`, filename, bug)
+}
+
+func TestAccShellShellScript_updateCommands(t *testing.T) {
+	file := "/tmp/test-file-" + acctest.RandString(16)
+	resource.Test(t, resource.TestCase{
+		Providers: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config:             testAccShellShellScriptConfig_updateCommands(file, true),
+				Check:              resource.TestCheckResourceAttr("shell_script.shell_script", "output.bug", "false"),
+				ExpectNonEmptyPlan: true,
+			},
+			{
+				Config: testAccShellShellScriptConfig_updateCommands(file, false),
+				Check:  resource.TestCheckResourceAttr("shell_script.shell_script", "output.bug", "false"),
+			},
+			{
+				Config: testAccShellShellScriptConfig_updateCommands(file, false),
+				Check:  resource.TestCheckResourceAttr("shell_script.shell_script", "output.bug", "false"),
+			},
+		},
+	})
+}
+func testAccShellShellScriptConfig_updateCommands(filename string, bug bool) string {
+	var read = `cat "$FILE"`
+	if bug {
+		read = `[ -f "$FILE.bug" ] && cat "$FILE.bug" || { cat "$FILE" ; echo -n '{}' > "$FILE.bug" ;}`
+	}
+
+	return fmt.Sprintf(`
+		resource "shell_script" "shell_script" {
+			lifecycle_commands {
+				create = <<-EOF
+					echo -n '{"bug": false}' > "$FILE"
+				EOF
+				read = <<-EOF
+					%s
+				EOF
+				update = <<-EOF
+					echo -n '{"bug": true}' > "$FILE"
+				EOF
+				delete = <<-EOF
+					rm "$FILE"
+				EOF
+			}
+			environment = {
+				FILE = "%s"
+			}
+		}
+	`, read, filename)
+}
