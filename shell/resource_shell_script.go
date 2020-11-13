@@ -1,6 +1,7 @@
 package shell
 
 import (
+	"fmt"
 	"log"
 	"reflect"
 	"runtime"
@@ -87,6 +88,10 @@ func resourceShellScript() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 				Default:  "",
+				ValidateFunc: func(i interface{}, s string) ([]string, []error) {
+					x0 := fmt.Errorf("`read_error` cannot be set from configuration")
+					return []string{}, []error{x0}
+				},
 			},
 		},
 	}
@@ -110,7 +115,19 @@ func resourceShellScriptRead(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 
-func resourceShellScriptUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceShellScriptUpdate(d *schema.ResourceData, meta interface{}) (err error) {
+	if d.HasChange("lifecycle_commands.0.read") {
+		err = read(d, meta, []Action{ActionUpdate})
+		if err != nil {
+			_ = restoreOldResourceData(d)
+		}
+		return
+	}
+
+	if d.HasChanges("lifecycle_commands", "interpreter") {
+		return
+	}
+
 	return update(d, meta, []Action{ActionUpdate})
 }
 
@@ -124,6 +141,18 @@ func resourceShellScriptCustomizeDiff(d *schema.ResourceDiff, i interface{}) (er
 	}
 
 	if d.HasChange("lifecycle_commands") || d.HasChange("interpreter") {
+		for _, k := range []string{
+			"environment", "sensitive_environment", "working_directory"} {
+
+			if d.HasChange(k) {
+				return fmt.Errorf("changes to `lifecycle_commands` and/or `interpreter`" +
+					" should not be follwed by changes to other arguments")
+			}
+		}
+
+		if d.HasChange("lifecycle_commands.0.read") {
+			_ = d.SetNewComputed("output") //  assume output will change
+		}
 		return
 	}
 
@@ -135,16 +164,20 @@ func resourceShellScriptCustomizeDiff(d *schema.ResourceDiff, i interface{}) (er
 	}
 
 	if _, ok := d.GetOk("lifecycle_commands.0.update"); ok {
+		for _, k := range []string{
+			"environment", "sensitive_environment", "working_directory"} {
+
+			if d.HasChange(k) {
+				_ = d.SetNewComputed("output") //  assume output will change
+			}
+		}
 		return // updateable
 	}
 
 	// all the other arguments
 	for _, k := range []string{
-		"environment",
-		"sensitive_environment",
-		"working_directory",
-		"dirty",
-	} {
+		"environment", "sensitive_environment", "working_directory", "dirty"} {
+
 		if !d.HasChange(k) {
 			continue
 		}
@@ -299,11 +332,6 @@ func restoreOldResourceData(rd *schema.ResourceData, except ...string) (err erro
 }
 
 func update(d *schema.ResourceData, meta interface{}, stack []Action) error {
-	if d.HasChanges("lifecycle_commands", "interpreter") {
-		_ = restoreOldResourceData(d, "lifecycle_commands", "interpreter", "dirty", "read_error")
-		return nil
-	}
-
 	log.Printf("[DEBUG] Updating shell script resource...")
 	d.Set("dirty", false)
 	printStackTrace(stack)
