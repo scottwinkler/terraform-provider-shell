@@ -445,3 +445,62 @@ func testAccShellShellScriptConfig_updateCommands(filename string, bug bool) str
 		}
 	`, read, filename)
 }
+
+func TestAccShellShellScript_outputDependency(t *testing.T) {
+	file := "/tmp/test-file-" + acctest.RandString(16)
+	resource.Test(t, resource.TestCase{
+		Providers: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccShellShellScriptConfig_outputDependency(file, true, false),
+			},
+			{
+				Config: testAccShellShellScriptConfig_outputDependency(file, false, true),
+				Check:  resource.TestCheckResourceAttr("shell_script.dependent", "triggers.output", "false"),
+			},
+		},
+	})
+
+}
+
+func testAccShellShellScriptConfig_outputDependency(filename string, value bool, wdependent bool) (conf string) {
+	conf = fmt.Sprintf(`
+		resource "shell_script" "shell_script" {
+			lifecycle_commands {
+				create = <<-EOF
+					echo -n '{"value": '"$VALUE"'}' > "$FILE"
+				EOF
+				read = <<-EOF
+					cat "$FILE"
+				EOF
+				update = <<-EOF
+					echo -n '{"value": '"$VALUE"'}' > "$FILE"
+				EOF
+				delete = <<-EOF
+					rm "$FILE"
+				EOF
+			}
+			environment = {
+				FILE = "%s"
+				VALUE = "%t"
+			}
+		}
+	`, filename, value)
+
+	if wdependent {
+		conf = conf + `
+			resource "shell_script" "dependent" {
+				lifecycle_commands {
+					create = "echo -n"
+					read = "echo -n '{}'"
+					delete = "echo -n"
+				}
+
+				triggers = {
+					output = shell_script.shell_script.output["value"]
+				}
+			}	
+		`
+	}
+	return
+}
