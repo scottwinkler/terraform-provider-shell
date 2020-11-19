@@ -259,7 +259,8 @@ func read(d *schema.ResourceData, meta interface{}, stack []Action) error {
 	sensitiveEnvironment := formatEnvironmentVariables(sensitiveEnvVariables)
 	interpreter := getInterpreter(client, d)
 	workingDirectory := d.Get("working_directory").(string)
-	previousOutput := expandOutput(d.Get("output"))
+	o, _ := d.GetChange("output")
+	previousOutput := expandOutput(o)
 	enableParallelism := client.config.EnableParallelism
 
 	commandConfig := &CommandConfig{
@@ -346,7 +347,8 @@ func update(d *schema.ResourceData, meta interface{}, stack []Action) error {
 	sensitiveEnvironment := formatEnvironmentVariables(sensitiveEnvVariables)
 	interpreter := getInterpreter(client, d)
 	workingDirectory := d.Get("working_directory").(string)
-	previousOutput := expandOutput(d.Get("output"))
+	o, _ := d.GetChange("output")
+	previousOutput := expandOutput(o)
 	enableParallelism := client.config.EnableParallelism
 
 	commandConfig := &CommandConfig{
@@ -395,7 +397,8 @@ func delete(d *schema.ResourceData, meta interface{}, stack []Action) error {
 	sensitiveEnvironment := formatEnvironmentVariables(sensitiveEnvVariables)
 	interpreter := getInterpreter(client, d)
 	workingDirectory := d.Get("working_directory").(string)
-	previousOutput := expandOutput(d.Get("output"))
+	o, _ := d.GetChange("output")
+	previousOutput := expandOutput(o)
 	enableParallelism := client.config.EnableParallelism
 
 	commandConfig := &CommandConfig{
