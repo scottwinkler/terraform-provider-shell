@@ -504,3 +504,62 @@ func testAccShellShellScriptConfig_outputDependency(filename string, value bool,
 	}
 	return
 }
+
+func TestAccShellShellScript_previousOutput(t *testing.T) {
+	file := "/tmp/test-file-" + acctest.RandString(16)
+	resource.Test(t, resource.TestCase{
+		Providers: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccShellShellScriptConfig_previousOutput(file, true),
+				Check:  resource.TestCheckResourceAttr("shell_script.previous", "output.value", ""),
+			},
+			{
+				Config: testAccShellShellScriptConfig_previousOutput(file, false),
+				Check:  resource.TestCheckResourceAttr("shell_script.previous", "output.value", "true"),
+			},
+		},
+	})
+}
+
+func testAccShellShellScriptConfig_previousOutput(filename string, value bool) (conf string) {
+	return fmt.Sprintf(`
+		resource "shell_script" "shell_script" {
+			lifecycle_commands {
+				create = <<-EOF
+					echo -n '{"value": '"$VALUE"'}' > "$FILE"
+				EOF
+				read = <<-EOF
+					cat "$FILE"
+				EOF
+				update = <<-EOF
+					cat > "$FILE.previous" && echo -n '{"value": '"$VALUE"'}' > "$FILE"
+				EOF
+				delete = <<-EOF
+					rm "$FILE"
+				EOF
+			}
+			environment = {
+				FILE = "%s"
+				VALUE = "%t"
+			}
+		}
+
+		resource "shell_script" "previous" {
+			lifecycle_commands {
+				create = "true"
+				read = <<-EOF
+					cat $FILE || echo -n '{"value": null}'
+				EOF 
+				update = "true"
+				delete = "true"
+			}
+			environment = {
+				FILE = "${shell_script.shell_script.environment.FILE}.previous"
+			}
+			triggers = {
+				VALUE = shell_script.shell_script.environment.VALUE
+			}
+		}
+	`, filename, value)
+}
