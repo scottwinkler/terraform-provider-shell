@@ -283,8 +283,8 @@ func read(d *schema.ResourceData, meta interface{}, stack []Action) error {
 		d.SetId("")
 		return nil
 	}
-	log.Printf("[DEBUG] previous output:|%v|", output)
-	log.Printf("[DEBUG] new output:|%v|", previousOutput)
+	log.Printf("[DEBUG] previous output:|%v|", previousOutput)
+	log.Printf("[DEBUG] new output:|%v|", output)
 	isStateEqual := reflect.DeepEqual(output, previousOutput)
 	isNewResource := d.IsNewResource()
 	isUpdatedResource := stack[0] == ActionUpdate
