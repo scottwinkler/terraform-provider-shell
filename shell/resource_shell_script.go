@@ -146,7 +146,7 @@ func resourceShellScriptCustomizeDiff(d *schema.ResourceDiff, i interface{}) (er
 
 			if d.HasChange(k) {
 				return fmt.Errorf("changes to `lifecycle_commands` and/or `interpreter`" +
-					" should not be follwed by changes to other arguments")
+					" should not be followed by changes to other arguments")
 			}
 		}
 

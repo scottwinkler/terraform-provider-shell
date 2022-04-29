@@ -284,7 +284,7 @@ func TestAccShellShellScript_failedUpdate(t *testing.T) {
 			{
 				Config:             testAccShellScriptConfig_failedUpdate("value2"),
 				ExpectNonEmptyPlan: true,
-				ExpectError:        regexp.MustCompile("Error occured during shell execution"),
+				ExpectError:        regexp.MustCompile("Error occurred during shell execution"),
 				Check:              resource.TestCheckResourceAttr("shell_script.shell_script", "environment.VALUE", "value1"),
 			},
 		},
