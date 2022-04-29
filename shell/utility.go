@@ -99,7 +99,7 @@ func runCommand(c *CommandConfig) (map[string]string, error) {
 
 	// If the script exited with a non-zero code then send the error up to Terraform
 	if err != nil {
-		errorS := "Error occured during shell execution.\n"
+		errorS := "Error occurred during shell execution.\n"
 		errorS += "Error: \n" + err.Error() + "\n\n"
 		errorS += "Command: \n" + sanitizeString(c.Command, secretValues) + "\n\n"
 		errorS += "StdOut: \n" + sanitizeString(stdOutput, secretValues) + "\n\n"
