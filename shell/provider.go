@@ -38,11 +38,13 @@ func Provider() terraform.ResourceProvider {
 		},
 
 		DataSourcesMap: map[string]*schema.Resource{
-			"shell_script": dataSourceShellScript(),
+			"shell_script": dataSourceShellScript(false),
+			"shell_sensitive_script": dataSourceShellScript(true),
 		},
 
 		ResourcesMap: map[string]*schema.Resource{
-			"shell_script": resourceShellScript(),
+			"shell_script": resourceShellScript(false),
+			"shell_sensitive_script": resourceShellScript(true),
 		},
 		ConfigureFunc: providerConfigure,
 	}
