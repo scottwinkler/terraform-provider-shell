@@ -1,13 +1,12 @@
 package shell
 
 import (
-	"github.com/hashicorp/terraform-plugin-sdk/helper/mutexkv"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/terraform"
+	"sync"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-// Provider returns a terraform.ResourceProvider.
-func Provider() terraform.ResourceProvider {
+func Provider() *schema.Provider {
 
 	// The actual provider
 	return &schema.Provider{
@@ -72,7 +71,5 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 	return config.Client()
 }
 
-// This is a global MutexKV for use within this plugin.
-var shellMutexKV = mutexkv.NewMutexKV()
-
-const shellScriptMutexKey = "shellScriptMutexKey"
+// This is a global Mutex for use within this plugin.
+var shellMutex sync.Mutex

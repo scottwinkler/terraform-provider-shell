@@ -28,8 +28,8 @@ type CommandConfig struct {
 func runCommand(c *CommandConfig) (map[string]string, error) {
 	if !c.EnableParallelism {
 		log.Printf("[DEBUG] parallelism disabled, locking")
-		shellMutexKV.Lock(shellScriptMutexKey)
-		defer shellMutexKV.Unlock(shellScriptMutexKey)
+		shellMutex.Lock()
+		defer shellMutex.Unlock()
 		log.Printf("[DEBUG] lock acquired")
 	}
 
