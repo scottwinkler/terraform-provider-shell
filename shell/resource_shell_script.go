@@ -5,8 +5,9 @@ import (
 	"log"
 	"reflect"
 	"runtime"
+	"context"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/rs/xid"
 )
 
@@ -135,7 +136,7 @@ func resourceShellScriptDelete(d *schema.ResourceData, meta interface{}) error {
 	return delete(d, meta, []Action{ActionDelete})
 }
 
-func resourceShellScriptCustomizeDiff(d *schema.ResourceDiff, i interface{}) (err error) {
+func resourceShellScriptCustomizeDiff(ctx context.Context, d *schema.ResourceDiff, i interface{}) (err error) {
 	if d.Id() == "" {
 		return
 	}

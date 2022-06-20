@@ -6,9 +6,9 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/acctest"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/terraform"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
 
 func TestAccShellShellScript_basic(t *testing.T) {
@@ -149,7 +149,7 @@ func testAccShellScriptConfig_basic(outValue string) string {
 EOF
 		  delete = "rm -rf create_delete.json"
 		}
-	  
+
 		environment = {
 		  filename= "create_delete.json"
 		}
@@ -167,7 +167,7 @@ func testAccShellScriptConfig_basic_error() string {
 EOF
 		  delete = "exit 1"
 		}
-	  
+
 		environment = {
 		  filename= "create_delete.json"
 		}
@@ -235,7 +235,7 @@ func testAccShellScriptConfig_complete(outValue string) string {
 
 		environment = {
 			filename= "create_complete.json"
-			testdatasize = "100240"						
+			testdatasize = "100240"
 			out1 = "%s"
 		}
 
@@ -499,7 +499,7 @@ func testAccShellShellScriptConfig_outputDependency(filename string, value bool,
 				triggers = {
 					output = shell_script.shell_script.output["value"]
 				}
-			}	
+			}
 		`
 	}
 	return
@@ -550,7 +550,7 @@ func testAccShellShellScriptConfig_previousOutput(filename string, value bool) (
 				create = "true"
 				read = <<-EOF
 					cat $FILE || echo -n '{"value": null}'
-				EOF 
+				EOF
 				update = "true"
 				delete = "true"
 			}
