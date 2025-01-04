@@ -5,31 +5,37 @@
           <li<%= sidebar_current("docs-home") %>>
           <a href="/docs/providers/index.html">All Providers</a>
           </li>
-  
+
           <li<%= sidebar_current("docs-shell-index") %>>
           <a href="/docs/providers/shell/index.html">Shell Provider</a>
           </li>
-  
+
           <li<%= sidebar_current("docs-shell-datasource") %>>
             <a href="#">Data Sources</a>
             <ul class="nav nav-visible">
               <li<%= sidebar_current("docs-shell-datasource") %>>
                 <a href="/docs/providers/shell/d/shell_script_data_source.html">shell_script</a>
               </li>
+              <li<%= sidebar_current("docs-shell-datasource") %>>
+                <a href="/docs/providers/shell/d/shell_sensitive_script_data_source.html">shell_script</a>
+              </li>
             </ul>
           </li>
-  
+
           <li<%= sidebar_current("docs-shell-resource") %>>
           <a href="#">Resources</a>
           <ul class="nav nav-visible">
             <li<%= sidebar_current("docs-shell-resource") %>>
               <a href="/docs/providers/shell/r/shell_script_resource.html">shell_script</a>
             </li>
+            <li<%= sidebar_current("docs-shell-resource") %>>
+              <a href="/docs/providers/shell/r/shell_sensitive_script_resource.html">shell_script</a>
+            </li>
           </ul>
           </li>
         </ul>
       </div>
     <% end %>
-  
+
     <%= yield %>
     <% end %>

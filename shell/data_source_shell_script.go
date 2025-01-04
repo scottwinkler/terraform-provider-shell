@@ -7,7 +7,7 @@ import (
 	"github.com/rs/xid"
 )
 
-func dataSourceShellScript() *schema.Resource {
+func dataSourceShellScript(sensitive_output bool) *schema.Resource {
 	return &schema.Resource{
 		Read: dataSourceShellScriptRead,
 
@@ -52,6 +52,7 @@ func dataSourceShellScript() *schema.Resource {
 				Type:     schema.TypeMap,
 				Computed: true,
 				Elem:     schema.TypeString,
+				Sensitive: sensitive_output,
 			},
 		},
 	}
